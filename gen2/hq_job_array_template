@@ -1,0 +1,40 @@
+#!/bin/bash
+#SBATCH --account=plgccbmc14-cpu
+#SBATCH --partition=plgrid
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1     # 1 worker HQ na węzeł
+#SBATCH --cpus-per-task=48       # CPU dostępne dla workera
+#SBATCH --mem-per-cpu=1000
+#SBATCH --time=04:15:00
+
+
+module load hyperqueue
+
+export HQ_SERVER_DIR="$PWD/hq-server/$SLURM_JOB_ID"
+mkdir -p "$HQ_SERVER_DIR"
+
+hq server start &
+until hq job list &> /dev/null ; do sleep 1 ; done
+
+srun --overlap --cpu-bind=none --mpi=none hq worker start \
+  --manager slurm \
+  --on-server-lost finish-running \
+  --cpus="$SLURM_CPUS_PER_TASK" &
+
+
+hq worker wait "$SLURM_NTASKS"
+
+hq submit --cpus=1 --array=0-{num_simulations} {home}/run_shieldhit_cyfronet.sh
+
+echo "=== JOBS ==="
+hq job list
+echo "=== WORKERS ==="
+hq worker list
+echo "=== JOB DETAILS ==="
+hq job info 1          # szczegóły pierwszego joba
+
+hq job wait all
+
+# 7. Zatrzymanie workerów i serwera
+hq worker stop all
+hq server stop

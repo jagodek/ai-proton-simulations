@@ -1,0 +1,31 @@
+Geometry Cyl
+    Name CylZ_Mesh
+    R 0 5 1
+    Z 0 {cyl_height} 400
+
+
+Filter
+    Name Protons
+    Z == 1
+    A == 1
+Filter
+    Name Primaries
+    Z == 1
+    A == 1
+    GEN == 0
+Filter
+    Name Secondary_protons
+    Z == 1
+    A == 1
+    GEN >= 1
+
+Output
+    Filename z_profile.bdo
+    Geo CylZ_Mesh
+    Quantity Dose  
+    Quantity Fluence Protons 
+    Quantity Fluence Primaries 
+    Quantity Fluence Secondary_protons 
+    Quantity dLET Protons
+    Quantity dLET Primaries
+    Quantity dLET Secondary_protons

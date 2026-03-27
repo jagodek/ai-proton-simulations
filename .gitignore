@@ -1,3 +1,6 @@
 */batch*/*
 *.out
 .idea/*
+*.stdout
+*.stderr
+*/hq-server/*

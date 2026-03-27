@@ -1,0 +1,18 @@
+#!/bin/bash
+
+module load shieldhit
+SAVE_DATA_LOCATION={data_location}/batch{batch_num}
+
+
+LINE_NUM=$(($HQ_TASK_ID+1))
+
+line=$(sed -n "${LINE_NUM}p" commands)
+
+
+echo $line
+
+
+cd $SAVE_DATA_LOCATION/_$SLURM_ARRAY_TASK_ID
+pwd
+#echo $line > new_file
+eval $line
