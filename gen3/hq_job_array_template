@@ -5,7 +5,7 @@
 #SBATCH --ntasks-per-node=1     # 1 worker HQ na węzeł
 #SBATCH --cpus-per-task=45       # CPU dostępne dla workera
 #SBATCH --mem-per-cpu=1000
-#SBATCH --time=01:15:00
+#SBATCH --time=11:35:00
 
 
 module load hyperqueue
@@ -24,7 +24,7 @@ srun --overlap --cpu-bind=none --mpi=none hq worker start \
 
 hq worker wait "$SLURM_NTASKS"
 
-hq submit --cpus=1 --array=0-{num_simulations} {home}/run_shieldhit_cyfronet.sh
+hq submit --cpus=1 --array=0-{num_simulations} {home}/run_shieldhit_cyfronet_batch{batch_num}.sh
 
 echo "=== JOBS ==="
 hq job list

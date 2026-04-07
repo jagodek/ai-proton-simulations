@@ -6,7 +6,7 @@ SAVE_DATA_LOCATION={data_location}/batch{batch_num}
 
 LINE_NUM=$(($HQ_TASK_ID+1))
 
-line=$(sed -n "${LINE_NUM}p" commands)
+line=$(sed -n "${LINE_NUM}p" commands_batch{batch_num})
 
 
 echo $line
