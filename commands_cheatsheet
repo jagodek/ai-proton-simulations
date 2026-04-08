@@ -1,1 +1,28 @@
 sbatch --array= --mem-per-cpu=1G run_shieldhit.sh
+
+srun --time=1:00:00 --mem=8G --ntasks 1 --partition=plgrid --account=plgccbmc14-cpu --pty /bin/bash
+conda activate /net/afscra/people/plgmichalgodek/magisterka
+jupyter notebook --no-browser --port=8888 --ip=ac0788
+
+module load python/3.12
+module load shieldhit
+unset PYTHONPATH
+source /net/afscra/people/plgmichalgodek/magisterka_venv/bin/activate
+
+conda create -y --prefix $MEMFS/magisterka_memfs  python=3.11; cd $MEMFS; conda activate ./magisterka_memfs ; conda install -y ipykernel numpy matplotlib scipy anaconda::pytorch seaborn plotly nbformat jupyter
+jupyter notebook password
+jupyter notebook --no-browser
+
+pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install ipykernel numpy matplotlib scipy seaborn plotly nbformat jupyter pymchelper ffmpeg
+
+conda deactivate; module load python/3.11; . $SCRATCH/.venv_magisterka/bin/activate; module load ffmpeg/7.0-gcccore-12.3.0; jupyter notebook --no-browser
+module load ffmpeg/7.0-gcccore-12.3.0
+http://localhost:8888/tree
+ 
+
+
+export HQ_SERVER_DIR="/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/hq-server/19810429" ; module load hyperqueue
+hq task list 1
+
+jupyter nbconvert --execute --to html --output="plots_gen3_batch4_ProtonDepthProfileNet_16_dletpreprocessing_02_05" plots.ipynb

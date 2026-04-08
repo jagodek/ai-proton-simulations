@@ -6,6 +6,7 @@ import json
 import sys
 import math
 from pathlib import Path
+import multiprocessing as mp
 
 HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3"
 if os.getenv("PLG_GROUPS_STORAGE"):
@@ -68,41 +69,49 @@ print(BATCH_NUM)
 os.mkdir(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}")
 ctr = 0
 
+energies_seeds = []
 
-
-
-for i in range(len(energies)):
-    energy = energies[i]
-    for random_seed_index, generated_random_seed in enumerate([generate_8digit() for _ in range(SEEDS_PER_ENERGY)]):
-        with open("templates/beam-template", "r") as f:
-            new_beam_file = f.read()
-        new_beam_file = new_beam_file.format(random_seed=generated_random_seed, energy_mean=energy)
-        
-        cyl_height=str(math.floor(100*ALPHA*energy**EXPONENT)/100)
-        with open("templates/geo-template_height","r") as f:
-            new_geo_file = f.read()
-        new_geo_file = new_geo_file.format(cyl_height=cyl_height)
-
-        with open("templates/detect-template_height","r") as f:
-            new_detect_file = f.read()
-        new_detect_file = new_detect_file.format(cyl_height=cyl_height)
-
-        params = {
-            "energy": energy,
-            "cyl_height": cyl_height
-        }
-
-        os.mkdir(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}")
-        with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/input_params.txt", "w") as f:
-            json.dump(params, f, ensure_ascii=False, indent=2)
-        with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/beam.dat","w") as f:
-            f.write(new_beam_file)
-        with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/geo.dat","w") as f:
-            f.write(new_geo_file)
-        with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/detect.dat","w") as f:
-            f.write(new_detect_file)
-
+for energy in energies:
+    for generated_random_seed in [generate_8digit() for _ in range(SEEDS_PER_ENERGY)]:
+        energies_seeds.append((energy, generated_random_seed, ctr))
         ctr += 1
+
+
+def generate_inputs(inputs):
+    energy, generated_random_seed, ctr = inputs
+    with open("templates/beam-template", "r") as f:
+        new_beam_file = f.read()
+    new_beam_file = new_beam_file.format(random_seed=generated_random_seed, energy_mean=energy)
+    
+    cyl_height=str(math.floor(100*ALPHA*energy**EXPONENT)/100)
+    with open("templates/geo-template_height","r") as f:
+        new_geo_file = f.read()
+    new_geo_file = new_geo_file.format(cyl_height=cyl_height)
+
+    with open("templates/detect-template_height","r") as f:
+        new_detect_file = f.read()
+    new_detect_file = new_detect_file.format(cyl_height=cyl_height)
+
+    params = {
+        "energy": energy,
+        "cyl_height": cyl_height
+    }
+
+    os.mkdir(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}")
+    with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/input_params.txt", "w") as f:
+        json.dump(params, f, ensure_ascii=False, indent=2)
+    with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/beam.dat","w") as f:
+        f.write(new_beam_file)
+    with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/geo.dat","w") as f:
+        f.write(new_geo_file)
+    with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/detect.dat","w") as f:
+        f.write(new_detect_file)
+
+
+with mp.Pool() as pool:
+    results = pool.map(generate_inputs, energies_seeds, chunksize=1)
+
+
 
 
 def copy_templates(target_dir):
