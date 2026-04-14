@@ -7,14 +7,12 @@ import math
 import time
 import sys
 import numpy as np
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from pathlib import Path
-from matplotlib.animation import FuncAnimation 
-import multiprocessing as mp
 
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 db = np.load("training_data.npz")
 
 normalized_data_dose = db["normalized_data_dose"]
@@ -28,13 +26,13 @@ Y = torch.stack([
     torch.tensor(normalized_data_dose,    dtype=torch.float32),
     torch.tensor(normalized_data_fluence_protons, dtype=torch.float32),
     torch.tensor(normalized_data_dlet_protons,     dtype=torch.float32),
-], dim=1)  # → (n_samples, 3, 400)
+], dim=1).to(device)  # → (n_samples, 3, 400)
 
 
 X_min, X_max = X.min(), X.max()
 X_norm = (X - X_min) / (X_max - X_min)
 
-X_tensor = torch.tensor(X_norm, dtype=torch.float32)
+X_tensor = torch.tensor(X_norm, dtype=torch.float32).to(device)
 n = len(X_norm)
 
 
@@ -73,7 +71,6 @@ class ProtonDepthProfileNet(nn.Module):
         return torch.stack([dose, fluence, let], dim=1)  # → (batch, 3, 400)
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print(device)
 
