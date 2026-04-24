@@ -15,6 +15,56 @@ normalized_data_fluence_protons = training_data["normalized_data_fluence_protons
 normalized_data_dlet_protons = training_data["normalized_data_dlet_protons"]
 X = training_data["normalized_data_x"]
 
+
+test_data = np.load("test_data_g3batch8.npz")
+normalized_data_dose_test = test_data["normalized_data_dose_test"]
+normalized_data_fluence_protons_test = test_data["normalized_data_fluence_protons_test"]
+normalized_data_dlet_protons_test = test_data["normalized_data_dlet_protons_test"]
+X_test = test_data["normalized_data_x_test"]
+
+
+def test_model(model, criterion, device, batch_size=128):
+    """
+    Evaluates the trained model on the test dataset.
+    """
+    # 1. Set the model to evaluation mode
+    model.eval()
+    
+    # 2. Prepare test tensors and move them to the correct device
+    Y_test = torch.stack([
+        torch.tensor(normalized_data_dose_test, dtype=torch.float32),
+        torch.tensor(normalized_data_fluence_protons_test, dtype=torch.float32),
+        torch.tensor(normalized_data_dlet_protons_test, dtype=torch.float32),
+    ], dim=1).to(device)
+    
+    X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
+    n_test = len(X_test_tensor)
+    
+    test_loss = 0.0
+    
+    # 3. Disable gradient computation to save memory and speed up inference
+    with torch.no_grad():
+        for i in range(0, n_test, batch_size):
+            x_batch = X_test_tensor[i:i+batch_size]
+            y_batch = Y_test[i:i+batch_size]
+            
+            # Forward pass
+            pred = model(x_batch)
+            loss = criterion(pred, y_batch)
+            test_loss += loss.item()
+            
+    # Calculate the average test loss across all batches
+    num_batches = math.ceil(n_test / batch_size)
+    avg_test_loss = test_loss / num_batches
+    
+    print(f"\n--- Model Evaluation ---")
+    print(f"Final Test MSE Loss: {avg_test_loss:.4e}")
+    
+    return avg_test_loss
+
+# Call the function after your training loop finishes
+
+
 Y = torch.stack([
     torch.tensor(normalized_data_dose,    dtype=torch.float32),
     torch.tensor(normalized_data_fluence_protons, dtype=torch.float32),
@@ -89,5 +139,10 @@ for epoch in range(1000):
             f"Time: {time.time()-start_training:.2f}"
         )
 
+final_test_loss = test_model(model, criterion, device, batch_size=128)
+
+print(f"Train_loss: {final_test_loss}")
+
 os.makedirs('./checkpoints', exist_ok=True)
 torch.save(model.state_dict(), './checkpoints/gen3_batch7_ProtonDepthProfileNet_16_dletpreprocessing_02_01.pth')
+
