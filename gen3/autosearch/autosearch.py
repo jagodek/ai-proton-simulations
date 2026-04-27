@@ -5,6 +5,14 @@ from dotenv import load_dotenv
 import os
 from pprint import pprint
 import time
+import sys
+
+slurm_job_id= ""
+if len(sys.argv) == 2:
+    slurm_job_id = str(sys.argv[1])
+
+history_file_name = "history_log_"+slurm_job_id
+model = "Qwen/Qwen3.5-397B-A17B-FP8"
 
 history = []
 os.chdir("/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch")
@@ -80,6 +88,7 @@ Format odpowiedzi:
 Ważne:
 jako swoją odpowiedźzwróć tylko i wyłącznie json.
 Nie pisz żadnego tekstu przed ani po jsonie.
+Nie uwzględniaj przypisania definicji do zmiennej czyli na przykład fragmentu "model ="
 """
 
 
@@ -95,12 +104,10 @@ def prepare_train_model(json_answer):
 
     with open("train_model2.py","w") as f:
         f.write(file_template)
-    pass
 
 
 apikey = os.getenv("API_KEY")
 
-model = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
 
 
 def completion_request(prompt):
@@ -136,6 +143,8 @@ prompt = initial_prompt.format(train_model=train_model, answer_format=answer_for
 
 response = completion_request(prompt)
 
+prepare_train_model(response)
+
 history_record = {}
 
 def run_training():
@@ -152,9 +161,14 @@ history_record["config"] = response
 history.append(history_record)
 
 
-with open("history_log", "a") as history_file:
-    history_file.write(f"Training autosearch date: {time.asctime()}")
-    history_file.write(history_record)
+with open(history_file_name, "a") as history_file:
+    history_file.write(f"Training autosearch date: {time.asctime()}\n")
+    history_file.write((f"CONFIG\n"))
+    for key, val in history_record["config"].items():
+        history_file.write((f"\"{key}\"\n"))
+        history_file.write(val+"\n")
+    history_file.write((f"LOGS\n"))
+    history_file.write(history_record["logs"] +"\n")
 
 for i in range(10):
     with open("train_model2.py","r") as f:
@@ -169,7 +183,12 @@ for i in range(10):
     history_record["config"] = response
 
     history.append(history_record)
-    with open("history_log", "a") as history_file:
-        history_file.write(history_record)
+    with open(history_file_name, "a") as history_file:
+        history_file.write((f"CONFIG\n"))
+        for key, val in history_record["config"].items():
+            history_file.write((f"\"{key}\"\n"))
+            history_file.write(val+"\n")
+        history_file.write((f"LOGS\n"))
+        history_file.write(history_record["logs"] +"\n")
 
 pprint(history)    

@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Device: {device}")
 training_data = np.load("training_data.npz")
 normalized_data_dose = training_data["normalized_data_dose"]
 normalized_data_fluence_protons = training_data["normalized_data_fluence_protons"]
