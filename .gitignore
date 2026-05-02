@@ -4,3 +4,4 @@
 *.stdout
 *.stderr
 */hq-server/*
+.env
