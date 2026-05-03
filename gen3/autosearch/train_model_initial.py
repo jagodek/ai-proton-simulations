@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 HOME = "/home/michal/slrm/gen3/autosearch/"
+if os.getenv("PLG_GROUPS_STORAGE"):
+    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
 LOGS_PATH = Path(HOME, "tmp", "logs") 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
