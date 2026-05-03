@@ -12,27 +12,29 @@ from pathlib import Path
 {additional_functions_definitions}
 
 HOME = "/home/michal/slrm/gen3/autosearch/"
+if os.getenv("PLG_GROUPS_STORAGE"):
+    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch/"
 LOGS_PATH = Path(HOME, "tmp", "logs")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
-training_data = np.load("training_data_g3batch7.npz")
+training_data = np.load(Path(HOME,"training_data_g3batch7.npz"))
 data_dose = training_data["data_dose"]
 data_fluence_protons = training_data["data_fluence_protons"]
 data_dlet_protons = training_data["data_dlet_protons"]
-X = training_data["data_x"]
-x_min, x_max = np.min(X), np.max(X)
+data_x = training_data["data_x"]
+x_min, x_max = np.min(data_x), np.max(data_x)
 max_dose = np.max(data_dose)
 max_fluence_protons = np.max(data_fluence_protons)
 max_dlet_protons = np.max(data_dlet_protons)
 
-normalized_x = (X - x_min) / (x_max - x_min)
+normalized_x = (data_x - x_min) / (x_max - x_min)
 normalized_data_dose = data_dose / max_dose
 normalized_data_fluence_protons = data_fluence_protons / max_fluence_protons
 normalized_data_dlet_protons = data_dlet_protons / max_dlet_protons
 
 
-test_data = np.load("test_data_g3batch10.npz")
+test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
 data_dose_test = test_data["data_dose_test"]
 data_fluence_protons_test = test_data["data_fluence_protons_test"]
 data_dlet_protons_test = test_data["data_dlet_protons_test"]
@@ -84,14 +86,6 @@ def test_model(model, criterion, device, batch_size=128):
     return total_test_loss
 
 
-seeds_per_energy = 0
-for i, x in enumerate(X):
-    if x == X[0]:
-        seeds_per_energy += 1
-    else:
-        break
-print(seeds_per_energy)
-
 
 Y = torch.stack(
     [
@@ -101,8 +95,8 @@ Y = torch.stack(
     ],
     dim=1,
 ).to(device)
-X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
-n = len(X_tensor)
+X_tensor = torch.tensor(normalized_x, dtype=torch.float32).to(device)
+n_samples = len(X_tensor)
 
 
 {model_definition}
@@ -116,10 +110,8 @@ optimizer = {optimizer_definition}
 scheduler = {scheduler_definition}
 criterion = {criterion_definition}
 
-best_val_loss = float("inf")
 
 model.train()
-n_samples = X.shape[0]
 start_training = time.time()
 
 
