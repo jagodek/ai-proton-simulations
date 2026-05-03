@@ -7,14 +7,14 @@ import os
 import sys
 from pathlib import Path
 
-HOME = "/home/michal/slrm/gen3/autosearch/"
+HOME = "/home/michal/slrm/gen3/autosearch"
 if os.getenv("PLG_GROUPS_STORAGE"):
     HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
 LOGS_PATH = Path(HOME, "tmp", "logs") 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
-training_data = np.load(HOME+"training_data_g3batch7.npz")
+training_data = np.load(Path(HOME,"training_data_g3batch7.npz"))
 data_dose = training_data["data_dose"]
 data_fluence_protons = training_data["data_fluence_protons"]
 data_dlet_protons = training_data["data_dlet_protons"]
@@ -30,7 +30,7 @@ normalized_data_fluence_protons = data_fluence_protons/max_fluence_protons
 normalized_data_dlet_protons = data_dlet_protons/max_dlet_protons
 
 
-test_data = np.load(HOME+"test_data_g3batch10.npz")
+test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
 data_dose_test = test_data["data_dose_test"]
 data_fluence_protons_test = test_data["data_fluence_protons_test"]
 data_dlet_protons_test = test_data["data_dlet_protons_test"]
@@ -89,7 +89,7 @@ Y = torch.stack([
     torch.tensor(normalized_data_fluence_protons, dtype=torch.float32),
     torch.tensor(normalized_data_dlet_protons,     dtype=torch.float32),
 ], dim=1).to(device)
-X_tensor = torch.tensor(data_x, dtype=torch.float32).to(device)
+X_tensor = torch.tensor(normalized_x, dtype=torch.float32).to(device)
 n = len(X_tensor)
 
 
@@ -129,8 +129,6 @@ model     = Model().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20, factor=0.5)
 criterion = nn.MSELoss()
-
-best_val_loss = float("inf")
 
 model.train()
 n_samples = data_x.shape[0]
