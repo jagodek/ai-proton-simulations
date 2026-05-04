@@ -110,7 +110,7 @@ start_training = time.time()
 
 {training_loop_definition}
 
-final_test_loss = test_model(model, criterion, device, batch_size=batch_size)
+final_test_loss = test_model(model, criterion, device)
 
 
 def save_checkpoints():
