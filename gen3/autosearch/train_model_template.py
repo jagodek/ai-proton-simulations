@@ -50,7 +50,7 @@ with open(LOGS_PATH, "w+") as f:
     pass
 
 
-def test_model(model, criterion, device, batch_size=128):
+def test_model(model, criterion, device):
     """
     Evaluates the trained model on the test dataset.
     """
@@ -66,25 +66,17 @@ def test_model(model, criterion, device, batch_size=128):
     ).to(device)
 
     X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
-    n_test = len(X_test_tensor)
 
-    total_test_loss = 0.0
 
     with torch.no_grad():
-        for i in range(0, n_test, batch_size):
-            x_batch = X_test_tensor[i : i + batch_size]
-            y_batch = Y_test[i : i + batch_size]
-
-            # Forward pass
-            pred = model(x_batch)
-            loss = criterion(pred, y_batch)
-            total_test_loss += loss.item()
-
+        predictions = model(X_test_tensor)
+        test_loss = criterion(predictions, Y_test).item()
+    criterion_name = criterion.__class__.__name__
     print(f"\n--- Model Evaluation ---")
-    print(f"Final Test Loss: {total_test_loss:.4e}")
+    print(f"Total Test {criterion_name}: {test_loss:.4e}")
     with open(LOGS_PATH, "a+") as logs_file:
-        logs_file.write(f"Final Test Loss: {total_test_loss:.4e}")
-    return total_test_loss
+        logs_file.write(f"Total Test {criterion_name}: {test_loss:.4e}")
+    return test_loss
 
 
 
