@@ -11,6 +11,11 @@ from pathlib import Path
 {imports_definitions}
 {additional_functions_definitions}
 
+
+slurm_job_id = ""
+if len(sys.argv) == 2:
+    slurm_job_id = str(sys.argv[1])
+
 HOME = "/home/michal/slrm/gen3/autosearch"
 if os.getenv("PLG_GROUPS_STORAGE"):
     HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
@@ -112,24 +117,32 @@ start_training = time.time()
 
 final_test_loss = test_model(model, criterion, device)
 
-
+CHECKPOINTS_DIR_NAME = "checkpoints"+slurm_job_id
 def save_checkpoints():
-    with open(Path(HOME, "checkpoints", "best_loss"), "w") as best_loss_file:
+    with open(Path(HOME,CHECKPOINTS_DIR_NAME, "best_losses_history"), "a") as best_losses_history:
+        best_losses_history.write(str(final_test_loss)+"\n")
+    with open(Path(HOME,CHECKPOINTS_DIR_NAME, "best_losses_history"), "r") as best_losses_history:
+        losses_number = len(best_losses_history.readlines())-1
+    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_loss"), "w") as best_loss_file:
         best_loss_file.write(str(final_test_loss))
         # os.makedirs('./checkpoints', exist_ok=True)
-    with open(Path(HOME, "checkpoints", "best_code"), "w") as best_code_file:
+    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_code"+str(losses_number)), "w") as best_code_file:
         with open(Path(HOME,"tmp","train_model_loop.py"), "r") as current_code_file:
             best_code_file.write(current_code_file.read())
 
-    torch.save(model.state_dict(), Path(HOME,"checkpoints","best.pth"))
-    torch.save(model, Path(HOME,"checkpoints","best_model.pth"))
+    torch.save(model.state_dict(), Path(HOME,CHECKPOINTS_DIR_NAME,f"best{str(losses_number)}.pth"))
+    torch.save(model, Path(HOME,CHECKPOINTS_DIR_NAME,f"best_model{str(losses_number)}.pth"))
 
 
 
-if not Path(HOME, "checkpoints", "best_loss").is_file():
+if not Path(HOME, CHECKPOINTS_DIR_NAME).is_dir():
+    Path(HOME, CHECKPOINTS_DIR_NAME).mkdir()
+    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_losses_history"),"w"):
+        pass
+    Path(HOME, CHECKPOINTS_DIR_NAME, "")
     save_checkpoints()
 else:
-    with open(Path(HOME, "checkpoints", "best_loss"), "r") as best_loss_file:
+    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_loss"), "r") as best_loss_file:
         best_loss = float(best_loss_file.readline())
 
     if final_test_loss < best_loss:

@@ -12,22 +12,21 @@ HOME = "/home/michal/slrm/gen3/autosearch/"
 LOGS_PATH = Path(HOME, "tmp", "logs")
 LOOP_TRAINING_SCRIPT = Path(HOME, "tmp", "train_model_loop.py")
 
-if not Path(HOME,"tmp").is_dir():
-    Path(HOME,"tmp").mkdir()
-if not Path(HOME,"checkpoints").is_dir():
-    Path(HOME,"checkpoints").mkdir()
+if not Path(HOME, "tmp").is_dir():
+    Path(HOME, "tmp").mkdir()
+if not Path(HOME, "checkpoints").is_dir():
+    Path(HOME, "checkpoints").mkdir()
 
-slurm_job_id= ""
+slurm_job_id = ""
 if len(sys.argv) == 2:
     slurm_job_id = str(sys.argv[1])
 
-HISTORY_FILE_NAME = "history_log_"+slurm_job_id
+HISTORY_FILE_NAME = "history_log_" + slurm_job_id
 model = "Qwen/Qwen3.5-397B-A17B-FP8"
 
-load_dotenv(Path(HOME,".env"))
+load_dotenv(Path(HOME, ".env"))
 apikey = os.getenv("API_KEY")
 history = []
-response_history = []
 
 beginning_part = """
 You are expert in neural networks applied in high energy particle physics. Your goal is to propose new architecture or optimize current setup for prediction of indepth distribution dose, fluence and dlet inside water based on energy of proton pencil beam. The distributions are divided into 400 segments. The training data comes from running simulations 30 times for each of energy from range 20 to 250MeV. The data from simulations has some statistical uncertainty so it's important to achieve some smoothness of prediction. 
@@ -39,8 +38,8 @@ In the code the version of pytorch is 2.11.0
 """
 
 training_template = ""
-with open(Path(HOME,"train_model_template.py"), "r") as template_file:
-    training_template = template_file.read() 
+with open(Path(HOME, "train_model_template.py"), "r") as template_file:
+    training_template = template_file.read()
 
 
 training_loop_include = """
@@ -57,7 +56,7 @@ if epoch % 50 == 0:
         )
 """
 
-answer_format="""
+answer_format = """
 {
     "model_definition": <model_definition>,
     "optimizer_definition": <optimizer_definition>,
@@ -91,6 +90,7 @@ You also have to specify training loop code. The placeholder for training loop h
 Make sure to include below code in training loop:
 {training_loop_include}
 
+
 Important rule: Do not include validation in training loop or anywhere.
 
 
@@ -123,7 +123,7 @@ For additional reference here is array containing your previous answers and foll
 
 initial_prompt = beginning_part + ending_part
 
-error_prompt =  beginning_part + history_part + """
+error_prompt = beginning_part + history_part + """
 
 Your last answer caused error. 
 Here's bad config:
@@ -134,55 +134,56 @@ And here's error message:
 [end of error message]
 """ + ending_part
 
-next_prompt = beginning_part + history_part +"""
+next_prompt = beginning_part + history_part + """
 The best code so far was:
 {best_code}
 [end of best code]
 The best loss for above code so far was:
 {best_loss}
 [end of best loss]
-"""+ ending_part
+""" + ending_part
 
 
 def extract_config(text):
-    answer = re.search(r'\[json\](.*?)\[json\]', text, re.DOTALL)
+    answer = re.search(r"\[json\](.*?)\[json\]", text, re.DOTALL)
 
     if answer:
-        extracted_text = answer.group(1).strip() 
+        extracted_text = answer.group(1).strip()
         return extracted_text
     else:
         return None
 
+
 def prepare_train_model(text):
     config = extract_config(text)
     if config:
-        with open(Path(HOME,"train_model_template.py"),"r") as f:
+        with open(Path(HOME, "train_model_template.py"), "r") as f:
             file_template = f.read()
-        
+
         for key, value in json.loads(config).items():
             file_template = file_template.replace(f"{{{key}}}", str(value))
 
-        with open(LOOP_TRAINING_SCRIPT,"w+") as f:
+        with open(LOOP_TRAINING_SCRIPT, "w+") as f:
             f.write(file_template)
     else:
         return None
 
+
 def completion_request(prompt):
-    endpoint = 'https://llmlab.plgrid.pl/api/v1/chat/completions'
-    headers = {'accept': 'application/json', "Authorization": f"Bearer {apikey}", 'Content-Type': 'application/json'}
-    payload={
+    endpoint = "https://llmlab.plgrid.pl/api/v1/chat/completions"
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {apikey}",
+        "Content-Type": "application/json",
+    }
+    payload = {
         "model": model,
-        "messages": [
-            {
-            "role": "user",
-            "content": f"{prompt}" 
-            }
-        ],
+        "messages": [{"role": "user", "content": f"{prompt}"}],
         "top_p": 1,
         "temperature": 1,
         "presence_penalty": 0,
         "frequency_penalty": 0,
-        "stream": 'false'
+        "stream": "false",
     }
     response = requests.post(endpoint, json=payload, headers=headers)
     if response.ok:
@@ -192,13 +193,29 @@ def completion_request(prompt):
     return None
 
 
-with open(Path(HOME,"train_model_initial.py"),"r") as f:
+with open(Path(HOME, "train_model_initial.py"), "r") as f:
     train_model = f.read()
 
-prompt = initial_prompt.format(train_model=train_model,training_loop_include=training_loop_include, answer_format=answer_format, training_template=training_template)
+prompt = initial_prompt.format(
+    train_model=train_model,
+    training_loop_include=training_loop_include,
+    answer_format=answer_format,
+    training_template=training_template,
+)
 
 response = completion_request(prompt)
-response_history.append(response)
+
+max_retries = 10
+retry_ctr = 0
+while (
+    response is None or not response.count("[json]") == 2
+) and retry_ctr < max_retries:
+    print("BAD REPSONSE DETECTED RETRYING")
+    response = completion_request(prompt)
+    retry_ctr += 1
+if retry_ctr == max_retries:
+    print("Max retries for ininital prompt. Exiting")
+    sys.exit(1)
 
 prepare_train_model(response)
 
@@ -206,8 +223,9 @@ history_record = {}
 history_record["response"] = response
 
 
-with open(Path(HOME,HISTORY_FILE_NAME), "a+") as history_file:
+with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
     history_file.write(f"Training autosearch date: {time.asctime()}\n")
+
 
 def run_training(history_record):
     success_flag = False
@@ -215,28 +233,47 @@ def run_training(history_record):
     limit_ctr = 0
 
     while not success_flag and limit_ctr < limit:
-        with open(Path(HOME,HISTORY_FILE_NAME), "a+") as history_file:
-            history_file.write(history_record["response"]+"\n")
-        
+        with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
+            history_file.write(history_record["response"] + "\n")
+
         result = subprocess.run(
-            [sys.executable, LOOP_TRAINING_SCRIPT], 
-            capture_output=True, 
-            text=True
+            [sys.executable, LOOP_TRAINING_SCRIPT, slurm_job_id], capture_output=True, text=True
         )
         if result.returncode != 0:
-            history_record["logs"] =result.stderr
-            with open(Path(HOME,HISTORY_FILE_NAME), "a+") as history_file:
-                history_file.write(history_record["logs"]+"\n")
+            history_record["logs"] = result.stderr
+            with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
+                history_file.write(history_record["logs"] + "\n")
             history.append(history_record)
 
-            prompt = error_prompt.format(train_model=train_model, history=history, error_config = extract_config(history_record["response"]), error_message=result.stderr,training_loop_include=training_loop_include, answer_format=answer_format, training_template=training_template)
+            prompt = error_prompt.format(
+                train_model=train_model,
+                history=history,
+                error_config=extract_config(history_record["response"]),
+                error_message=result.stderr,
+                training_loop_include=training_loop_include,
+                answer_format=answer_format,
+                training_template=training_template,
+            )
             response = completion_request(prompt)
+
+            prompt_max_retries = 10
+            prompt_retry_ctr = 0
+            while (
+                response is None or not response.count("[json]") == 2
+            ) and prompt_retry_ctr < prompt_max_retries:
+                print("BAD REPSONSE DETECTED RETRYING")
+                response = completion_request(prompt)
+                prompt_retry_ctr += 1
+            if prompt_retry_ctr == prompt_max_retries:
+                print("Max retries for ininital prompt. Exiting")
+                sys.exit(1)
+
             history_record = {}
             history_record["response"] = response
             prepare_train_model(response)
         else:
             success_flag = True
-        limit_ctr+=1
+        limit_ctr += 1
     if limit_ctr == limit:
         print("10 error runs in a row. Exiting.")
         sys.exit(1)
@@ -244,24 +281,46 @@ def run_training(history_record):
     with open(LOGS_PATH, "r") as logs_file:
         logs = logs_file.read()
     history_record["logs"] = logs
-    with open(Path(HOME,HISTORY_FILE_NAME), "a+") as history_file:
-        history_file.write(history_record["logs"]+"\n")
-    
+    with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
+        history_file.write(history_record["logs"] + "\n")
+
+
 run_training(history_record)
 
-for i in range(10):
-    with open(LOOP_TRAINING_SCRIPT,"r") as f:
+for i in range(100):
+    with open(LOOP_TRAINING_SCRIPT, "r") as f:
         train_model = f.read()
     best_code = ""
     best_loss = ""
-    with open(Path(HOME,"checkpoints","best_code"), "r") as best_code_file:
+    with open(Path(HOME, "checkpoints", "best_code"), "r") as best_code_file:
         best_code = best_code_file.read()
-    with open(Path(HOME,"checkpoints","best_loss"), "r") as best_loss_file:
+    with open(Path(HOME, "checkpoints", "best_loss"), "r") as best_loss_file:
         best_loss = best_loss_file.read()
-    prompt = next_prompt.format(history=history, train_model=train_model, best_code=best_code, best_loss=best_loss, training_loop_include=training_loop_include, answer_format=answer_format, training_template = training_template)
+    prompt = next_prompt.format(
+        history=history,
+        train_model=train_model,
+        best_code=best_code,
+        best_loss=best_loss,
+        training_loop_include=training_loop_include,
+        answer_format=answer_format,
+        training_template=training_template,
+    )
     response = completion_request(prompt)
+
+    max_retries = 10
+    retry_ctr = 0
+    while (
+        response is None or not response.count("[json]") == 2
+    ) and retry_ctr < max_retries:
+        print("BAD REPSONSE DETECTED RETRYING")
+        response = completion_request(prompt)
+        retry_ctr += 1
+    if retry_ctr == max_retries:
+        print("Max retries for ininital prompt. Exiting")
+        sys.exit(1)
+
     history_record = {}
     history_record["response"] = response
     prepare_train_model(response)
- 
+
     run_training(history_record)
