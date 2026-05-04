@@ -44,44 +44,33 @@ normalized_data_dlet_protons_test = data_dlet_protons_test/max_dlet_protons
 with open(LOGS_PATH,"w+") as f:
     pass
 
-def test_model(model, criterion, device, batch_size=128):
+def test_model(model, criterion, device):
     """
     Evaluates the trained model on the test dataset.
     """
-    # 1. Set the model to evaluation mode
     model.eval()
-    
-    # 2. Prepare test tensors and move them to the correct device
-    Y_test = torch.stack([
-        torch.tensor(normalized_data_dose_test, dtype=torch.float32),
-        torch.tensor(normalized_data_fluence_protons_test, dtype=torch.float32),
-        torch.tensor(normalized_data_dlet_protons_test, dtype=torch.float32),
-    ], dim=1).to(device)
-    
-    X_test_tensor = torch.tensor(data_x_test, dtype=torch.float32).to(device)
-    n_test = len(X_test_tensor)
-    
-    total_test_loss = 0.0
-    
-    # 3. Disable gradient computation to save memory and speed up inference
-    with torch.no_grad():
-        for i in range(0, n_test, batch_size):
-            x_batch = X_test_tensor[i:i+batch_size]
-            y_batch = Y_test[i:i+batch_size]
-            
-            # Forward pass
-            pred = model(x_batch)
-            loss = criterion(pred, y_batch)
-            total_test_loss += loss.item()
 
-    
+    Y_test = torch.stack(
+        [
+            torch.tensor(normalized_data_dose_test, dtype=torch.float32),
+            torch.tensor(normalized_data_fluence_protons_test, dtype=torch.float32),
+            torch.tensor(normalized_data_dlet_protons_test, dtype=torch.float32),
+        ],
+        dim=1,
+    ).to(device)
+
+    X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
+
+
+    with torch.no_grad():
+        predictions = model(X_test_tensor)
+        test_loss = criterion(predictions, Y_test).item()
+    criterion_name = criterion.__class__.__name__
     print(f"\n--- Model Evaluation ---")
-    print(f"Final Test Loss: {total_test_loss:.4e}")
-    with open(LOGS_PATH,"a+") as logs_file:
-            logs_file.write(
-                f"Final Test Loss: {total_test_loss:.4e}"
-            )
-    return total_test_loss
+    print(f"Total Test {criterion_name}: {test_loss:.4e}")
+    with open(LOGS_PATH, "a+") as logs_file:
+        logs_file.write(f"Total Test {criterion_name}: {test_loss:.4e}")
+    return test_loss
 
 
 Y = torch.stack([
@@ -169,7 +158,7 @@ for epoch in range(total_epochs):
                 f"Epoch {epoch:>4d} | Train loss: {train_loss:.8e}  | LR: {current_lr:.2e} | Time: {time.time()-start_training:.2f}\n"
             )
 
-final_test_loss = test_model(model, criterion, device, batch_size=128)
+final_test_loss = test_model(model, criterion, device)
 
 
 def save_checkpoints():
