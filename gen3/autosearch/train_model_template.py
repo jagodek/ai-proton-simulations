@@ -7,158 +7,143 @@ import torch.nn as nn
 import torch.optim as optim
 import math
 from pathlib import Path
+
 {imports_definitions}
+{additional_functions_definitions}
+
+
+slurm_job_id = ""
+if len(sys.argv) == 2:
+    slurm_job_id = str(sys.argv[1])
+
+HOME = "/home/michal/slrm/gen3/autosearch"
+if os.getenv("PLG_GROUPS_STORAGE"):
+    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
+
+LOGS_PATH = Path(HOME, "tmp", "logs")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
-training_data = np.load("training_data_g3batch7.npz")
+training_data = np.load(Path(HOME,"training_data_g3batch7.npz"))
 data_dose = training_data["data_dose"]
 data_fluence_protons = training_data["data_fluence_protons"]
 data_dlet_protons = training_data["data_dlet_protons"]
-X = training_data["data_x"]
-x_min, x_max = np.min(X), np.max(X)
+data_x = training_data["data_x"]
+x_min, x_max = np.min(data_x), np.max(data_x)
 max_dose = np.max(data_dose)
 max_fluence_protons = np.max(data_fluence_protons)
 max_dlet_protons = np.max(data_dlet_protons)
 
-normalized_x = (X - x_min) / (x_max-x_min)
-normalized_data_dose = data_dose/max_dose
-normalized_data_fluence_protons = data_fluence_protons/max_fluence_protons
-normalized_data_dlet_protons = data_dlet_protons/max_dlet_protons
+normalized_x = (data_x - x_min) / (x_max - x_min)
+normalized_data_dose = data_dose / max_dose
+normalized_data_fluence_protons = data_fluence_protons / max_fluence_protons
+normalized_data_dlet_protons = data_dlet_protons / max_dlet_protons
 
 
-test_data = np.load("test_data_g3batch8.npz")
+test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
 data_dose_test = test_data["data_dose_test"]
 data_fluence_protons_test = test_data["data_fluence_protons_test"]
 data_dlet_protons_test = test_data["data_dlet_protons_test"]
 X_test = test_data["data_x_test"]
 
-normalized_x_test = (X_test - x_min) / (x_max-x_min)
-normalized_data_dose_test = data_dose_test/max_dose
-normalized_data_fluence_protons_test = data_fluence_protons_test/max_fluence_protons
-normalized_data_dlet_protons_test = data_dlet_protons_test/max_dlet_protons
+normalized_x_test = (X_test - x_min) / (x_max - x_min)
+normalized_data_dose_test = data_dose_test / max_dose
+normalized_data_fluence_protons_test = data_fluence_protons_test / max_fluence_protons
+normalized_data_dlet_protons_test = data_dlet_protons_test / max_dlet_protons
+
+with open(LOGS_PATH, "w+") as f:
+    pass
 
 
-def test_model(model, criterion, device, batch_size=128):
+def test_model(model, criterion, device):
     """
     Evaluates the trained model on the test dataset.
     """
-    # 1. Set the model to evaluation mode
     model.eval()
-    
-    # 2. Prepare test tensors and move them to the correct device
-    Y_test = torch.stack([
-        torch.tensor(normalized_data_dose_test, dtype=torch.float32),
-        torch.tensor(normalized_data_fluence_protons_test, dtype=torch.float32),
-        torch.tensor(normalized_data_dlet_protons_test, dtype=torch.float32),
-    ], dim=1).to(device)
-    
+
+    Y_test = torch.stack(
+        [
+            torch.tensor(normalized_data_dose_test, dtype=torch.float32),
+            torch.tensor(normalized_data_fluence_protons_test, dtype=torch.float32),
+            torch.tensor(normalized_data_dlet_protons_test, dtype=torch.float32),
+        ],
+        dim=1,
+    ).to(device)
+
     X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
-    n_test = len(X_test_tensor)
-    
-    test_loss = 0.0
-    
-    # 3. Disable gradient computation to save memory and speed up inference
+
+
     with torch.no_grad():
-        for i in range(0, n_test, batch_size):
-            x_batch = X_test_tensor[i:i+batch_size]
-            y_batch = Y_test[i:i+batch_size]
-            
-            # Forward pass
-            pred = model(x_batch)
-            loss = criterion(pred, y_batch)
-            test_loss += loss.item()
-            
-    # Calculate the average test loss across all batches
-    num_batches = math.ceil(n_test / batch_size)
-    avg_test_loss = test_loss / num_batches
-    
+        predictions = model(X_test_tensor)
+        test_loss = criterion(predictions, Y_test).item()
+    criterion_name = criterion.__class__.__name__
     print(f"\n--- Model Evaluation ---")
-    print(f"Final Test MSE Loss: {avg_test_loss:.4e}")
-    with open("logs","a") as logs_file:
-            logs_file.write(
-                f"Final Test MSE Loss: {avg_test_loss:.4e}"
-            )
-    return avg_test_loss
-
-seeds_per_energy = 0
-for i,x in enumerate(X):
-    if x == X[0]:
-        seeds_per_energy += 1
-    else:
-        break
-print(seeds_per_energy)
+    print(f"Total Test {criterion_name}: {test_loss:.4e}")
+    with open(LOGS_PATH, "a+") as logs_file:
+        logs_file.write(f"Total Test {criterion_name}: {test_loss:.4e}")
+    return test_loss
 
 
 
-
-Y = torch.stack([
-    torch.tensor(normalized_data_dose,    dtype=torch.float32),
-    torch.tensor(normalized_data_fluence_protons, dtype=torch.float32),
-    torch.tensor(normalized_data_dlet_protons,     dtype=torch.float32),
-], dim=1).to(device)
-X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
-n = len(X_tensor)
+Y = torch.stack(
+    [
+        torch.tensor(normalized_data_dose, dtype=torch.float32),
+        torch.tensor(normalized_data_fluence_protons, dtype=torch.float32),
+        torch.tensor(normalized_data_dlet_protons, dtype=torch.float32),
+    ],
+    dim=1,
+).to(device)
+X_tensor = torch.tensor(normalized_x, dtype=torch.float32).to(device)
+n_samples = len(X_tensor)
 
 
 {model_definition}
 
 
-model     = Model().to(device)
+batch_size = {batch_size_definition}
+total_epochs = {total_epochs_definition}
+
+model = Model().to(device)
 optimizer = {optimizer_definition}
 scheduler = {scheduler_definition}
 criterion = {criterion_definition}
 
-best_val_loss = float("inf")
 
 model.train()
-n_samples = X.shape[0]
-batch_size = {batch_size_definition}
-total_epochs = {total_epochs_definition}
 start_training = time.time()
-with open("logs","w") as logs_file:
-    pass
-for epoch in range(total_epochs):
-    train_loss = 0.0
-    perm = torch.randperm(n)
-    for i in range(0, n, batch_size):
-        idx = perm[i:i+batch_size]
-        x_batch, y_batch = X_tensor[idx], Y[idx]
-
-        optimizer.zero_grad()
-        pred = model(x_batch)
-        loss = criterion(pred, y_batch)
-        loss.backward()
-        optimizer.step()
-        train_loss += loss.item()
-    num_batches = math.ceil(n / batch_size)
-    train_loss /= num_batches
-    current_lr = optimizer.param_groups[0]['lr']
-
-    
 
 
+{training_loop_definition}
 
-    if epoch % 50 == 0:
-        print(
-            f"Epoch {epoch:>4d} | ",
-            f"Train loss: {train_loss:.4e} | ",
-            f"LR: {current_lr:.2e}",
-            f"Time: {time.time()-start_training:.2f}"
-        )
-        with open("logs","a") as logs_file:
-            logs_file.write(
-                f"Epoch {epoch:>4d} | Train loss: {train_loss:.8e}  | LR: {current_lr:.2e} | Time: {time.time()-start_training:.2f}\n"
-            )
+final_test_loss = test_model(model, criterion, device)
 
-final_test_loss = test_model(model, criterion, device, batch_size=128)
-
-with open("best_loss", "r") as best_loss_file:
-    best_loss = float(best_loss_file.readline())
-
-if final_test_loss < best_loss:
-    with open("best_loss", "w") as best_loss_file:
-        best_loss_file.write(final_test_loss)
+CHECKPOINTS_DIR_NAME = "checkpoints"+slurm_job_id
+def save_checkpoints():
+    with open(Path(HOME,CHECKPOINTS_DIR_NAME, "best_losses_history"), "a") as best_losses_history:
+        best_losses_history.write(str(final_test_loss)+"\n")
+    with open(Path(HOME,CHECKPOINTS_DIR_NAME, "best_losses_history"), "r") as best_losses_history:
+        losses_number = len(best_losses_history.readlines())-1
+    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_loss"), "w") as best_loss_file:
+        best_loss_file.write(str(final_test_loss))
         # os.makedirs('./checkpoints', exist_ok=True)
-        torch.save(model.state_dict(), './checkpoints/best.pth')
-        torch.save(model, './checkpoints/best_model.pth')
+    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_code"+str(losses_number)), "w") as best_code_file:
+        with open(Path(HOME,"tmp","train_model_loop.py"), "r") as current_code_file:
+            best_code_file.write(current_code_file.read())
+
+    torch.save(model.state_dict(), Path(HOME,CHECKPOINTS_DIR_NAME,f"best{str(losses_number)}.pth"))
+    torch.save(model, Path(HOME,CHECKPOINTS_DIR_NAME,f"best_model{str(losses_number)}.pth"))
+
+
+
+if not Path(HOME, CHECKPOINTS_DIR_NAME).is_dir():
+    Path(HOME, CHECKPOINTS_DIR_NAME).mkdir()
+    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_losses_history"),"w"):
+        pass
+    Path(HOME, CHECKPOINTS_DIR_NAME, "")
+    save_checkpoints()
+else:
+    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_loss"), "r") as best_loss_file:
+        best_loss = float(best_loss_file.readline())
+
+    if final_test_loss < best_loss:
+        save_checkpoints()
