@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 HOME = "/home/michal/slrm/gen3/autosearch/"
+if os.getenv("PLG_GROUPS_STORAGE"):
+    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
 LOGS_PATH = Path(HOME, "tmp", "logs")
 LOOP_TRAINING_SCRIPT = Path(HOME, "tmp", "train_model_loop.py")
 
@@ -234,7 +236,10 @@ def run_training(history_record):
 
     while not success_flag and limit_ctr < limit:
         with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
-            history_file.write(history_record["response"] + "\n")
+            config = extract_config(history_record["response"])
+            history_file.write(history_record["response"]+"/n")
+            for key, value in json.loads(config).items():
+                history_file.write("====="+key + "=====\n"+ value+"\n")
 
         result = subprocess.run(
             [sys.executable, LOOP_TRAINING_SCRIPT, slurm_job_id], capture_output=True, text=True
