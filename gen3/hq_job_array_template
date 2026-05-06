@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=45       # CPU dostępne dla workera
 #SBATCH --mem-per-cpu=1000
 #SBATCH --time=11:35:00
-
+#SBATCH --job-name=batch{batch_num}
 
 module load hyperqueue
 
