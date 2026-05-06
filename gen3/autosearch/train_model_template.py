@@ -100,8 +100,8 @@ n_samples = len(X_tensor)
 {model_definition}
 
 
-batch_size = {batch_size_definition}
-total_epochs = {total_epochs_definition}
+batch_size = 64
+total_epochs = 600
 
 model = Model().to(device)
 optimizer = {optimizer_definition}

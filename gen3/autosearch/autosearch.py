@@ -62,10 +62,8 @@ answer_format = """
 {
     "model_definition": <model_definition>,
     "optimizer_definition": <optimizer_definition>,
-    "scheduler_definition": <scheduler_definition>
-    "criterion_definition" : <criterion_definition>
-    "batch_size_definition": <batch_size_definition>,
-    "total_epochs_definition": <total_epochs_definition>,
+    "scheduler_definition": <scheduler_definition>,
+    "criterion_definition" : <criterion_definition>,
     "imports_definitions": <imports_definitions>,
     "training_loop_definition: <training_loop_definition>,
     "additional_functions_definitions": <additional_functions_definitions>
@@ -74,15 +72,13 @@ answer_format = """
 
 ending_part = """
 Propose changes for one or more of the following:
-1. batch_size
-2. total_epochs
-3. Model
-4. optimizer
-5. criterion
-6. scheduler
-7. training_loop
+1. Model
+2. optimizer
+3. criterion
+4. scheduler
+5. training_loop
 
-You don't have to change everythin at once.
+You don't have to change everything at once.
 
 For model follow rules:
 1. model takes on input single value - energy normalized to [0,1]
@@ -91,10 +87,8 @@ For model follow rules:
 You also have to specify training loop code. The placeholder for training loop has already one indent so take that into account. Define train_loss and current_lr in the loop. 
 Make sure to include below code in training loop:
 {training_loop_include}
-
-
+[end of training loop inclusion]
 Important rule: Do not include validation in training loop or anywhere.
-
 
 Important: here's training template you have to follow for additional reference:
 {training_template}
@@ -248,7 +242,7 @@ def run_training(history_record):
             history_record["logs"] = result.stderr
             with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
                 history_file.write(history_record["logs"] + "\n")
-            history.append(history_record)
+            # history.append(history_record)
 
             prompt = error_prompt.format(
                 train_model=train_model,
