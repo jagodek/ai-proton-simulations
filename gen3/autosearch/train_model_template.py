@@ -44,9 +44,9 @@ test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
 data_dose_test = test_data["data_dose_test"]
 data_fluence_protons_test = test_data["data_fluence_protons_test"]
 data_dlet_protons_test = test_data["data_dlet_protons_test"]
-X_test = test_data["data_x_test"]
+data_x_test = test_data["data_x_test"]
 
-normalized_x_test = (X_test - x_min) / (x_max - x_min)
+normalized_x_test = (data_x_test - x_min) / (x_max - x_min)
 normalized_data_dose_test = data_dose_test / max_dose
 normalized_data_fluence_protons_test = data_fluence_protons_test / max_fluence_protons
 normalized_data_dlet_protons_test = data_dlet_protons_test / max_dlet_protons
@@ -70,7 +70,7 @@ def test_model(model, criterion, device):
         dim=1,
     ).to(device)
 
-    X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
+    X_test_tensor = torch.tensor(data_x_test, dtype=torch.float32).to(device)
 
 
     with torch.no_grad():
