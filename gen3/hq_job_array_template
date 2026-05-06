@@ -2,8 +2,8 @@
 #SBATCH --account=plgccbmc14-cpu
 #SBATCH --partition=plgrid
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1     # 1 worker HQ na węzeł
-#SBATCH --cpus-per-task=45       # CPU dostępne dla workera
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=48
 #SBATCH --mem-per-cpu=1000
 #SBATCH --time=11:35:00
 #SBATCH --job-name=batch{batch_num}
@@ -31,10 +31,9 @@ hq job list
 echo "=== WORKERS ==="
 hq worker list
 echo "=== JOB DETAILS ==="
-hq job info 1          # szczegóły pierwszego joba
+hq job info 1
 
 hq job wait all
 
-# 7. Zatrzymanie workerów i serwera
 hq worker stop all
 hq server stop
