@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from multiprocessing import Pool
 
 
 gen_num = int(sys.argv[1])
@@ -18,6 +19,9 @@ files = [f for f in files if f.startswith("_")]
 
 for file in sorted(files, key=lambda f: int(f.split("_")[1])):
     # print(Path(SAVE_DATA_LOCATION, f"batch{batch_num}","output", "z_profile.bdo"))
-    if file.startswith("_") and not Path(SAVE_DATA_LOCATION, f"batch{batch_num}",file,"output", "z_profile.bdo").is_file():
-        print(f"Failed simulation {file}")
+    output_files = os.listdir(Path(SAVE_DATA_LOCATION, f"batch{batch_num}", file, "output"))
+    output_files = [f for f in output_files if f.endswith(".bdo") or f.endswith(".log")]
+    for output_file in output_files:
+        if "for" in output_file:
+            print(f"Failed simulation {file}")
 
