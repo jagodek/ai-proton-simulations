@@ -10,7 +10,7 @@ import multiprocessing as mp
 
 gen_num = 4
 
-peaks_filename = sys.argv[1]
+peaks_filename = "peak_ranges"
 
 HOME = f"/home/michal/slrm/gen{gen_num}"
 SAVE_DATA_LOCATION = f"/home/michal/slrm/gen{gen_num}"
@@ -85,13 +85,15 @@ def generate_inputs(inputs):
     
     cyl_height=str(math.floor(10000*ALPHA*energy**EXPONENT)/10000)
     
+    peak_r = str(math.floor(10000*(-0.0213043*energy+5.426087))/10000)
+
     with open(Path(HOME, "templates", "geo-template-height"),"r") as f:
         new_geo_file = f.read()
     new_geo_file = new_geo_file.format(cyl_height=cyl_height)
 
     with open(Path(HOME, "templates", "detect-template-height-peak"),"r") as f:
         new_detect_file = f.read()
-    new_detect_file = new_detect_file.format(cyl_height=cyl_height, peak_start=peak_start, peak_end=peak_end)
+    new_detect_file = new_detect_file.format(cyl_height=cyl_height,peak_r =peak_r, peak_start=peak_start, peak_end=peak_end)
 
 
     params = {
@@ -122,7 +124,7 @@ with mp.Pool() as pool:
 def copy_templates(target_dir):
     # shutil.copyfile("./templates/detect-template", target_dir+"/detect.dat")
     # shutil.copyfile("./templates/geo-template", target_dir+"/geo.dat")
-    shutil.copyfile(Path(HOME, "templates", "mat"), Path(target_dir,"mat.dat"))
+    shutil.copyfile(Path(HOME, "templates", "mat.dat"), Path(target_dir,"mat.dat"))
 
 
 
