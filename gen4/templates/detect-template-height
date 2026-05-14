@@ -41,6 +41,10 @@ Output
     Quantity Fluence Protons 
     Quantity Fluence Primaries 
     Quantity Fluence Secondary_protons 
+    Quantity dLET Protons
+    Quantity dLET Primaries
+    Quantity dLET Secondary_protons
+
 
 Output
     Filename yz_profile.bdo
@@ -65,7 +69,13 @@ Output
 Output
     Filename peak.bdo
     Geo PeakSlab
-    Quantity Dose  
+    Quantity Dose
+    Quantity Fluence Protons 
+    Quantity Fluence Primaries 
+    Quantity Fluence Secondary_protons 
+    Quantity dLET Protons
+    Quantity dLET Primaries
+    Quantity dLET Secondary_protons  
     Quantity AvgEnergy Primaries 
     Quantity AvgEnergy Protons 
     Quantity AvgEnergy Secondary_protons 
