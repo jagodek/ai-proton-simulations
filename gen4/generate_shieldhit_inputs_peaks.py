@@ -8,8 +8,9 @@ import math
 from pathlib import Path
 import multiprocessing as mp
 
-gen_num = int(sys.argv[1])
-peaks_filename = sys.argv[2]
+gen_num = 4
+
+peaks_filename = sys.argv[1]
 
 HOME = f"/home/michal/slrm/gen{gen_num}"
 SAVE_DATA_LOCATION = f"/home/michal/slrm/gen{gen_num}"
@@ -36,7 +37,6 @@ def get_new_batch_num():
 def generate_8digit_seed():
     a = random.randrange(10**8, 10**9, 1)
     return a
-
 
 with open(Path(HOME, peaks_filename), "r") as peaks_file:
     peaks_z_ranges = peaks_file.readlines()
@@ -67,36 +67,40 @@ os.mkdir(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}")
 ctr = 0
 
 energies_seeds = []
-
 for energy, peak_z_range in zip(energies, peaks_z_ranges):
     for generated_random_seed in [generate_8digit_seed() for _ in range(SEEDS_PER_ENERGY)]:
         energies_seeds.append((energy, generated_random_seed, ctr, peak_z_range))
         ctr += 1
 
 
+
 def generate_inputs(inputs):
+
     energy, generated_random_seed, ctr, peak_z_range = inputs
-    with open(Path(HOME, "templates", "beam"), "r") as f:
+    peak_start, peak_end = peak_z_range.rstrip().split(",")
+
+    with open(Path(HOME, "templates", "beam-template-tmp"), "r") as f:
         new_beam_file = f.read()
     new_beam_file = new_beam_file.format(random_seed=generated_random_seed, energy_mean=energy)
     
     cyl_height=str(math.floor(10000*ALPHA*energy**EXPONENT)/10000)
-    peak_start, peak_end = peak_z_range.rstrip().split(",")
     
-    with open(Path(HOME, "templates", "geo"),"r") as f:
+    with open(Path(HOME, "templates", "geo-template-height"),"r") as f:
         new_geo_file = f.read()
     new_geo_file = new_geo_file.format(cyl_height=cyl_height)
 
-    with open(Path(HOME, "templates", "detect"),"r") as f:
+    with open(Path(HOME, "templates", "detect-template-height-peak"),"r") as f:
         new_detect_file = f.read()
     new_detect_file = new_detect_file.format(cyl_height=cyl_height, peak_start=peak_start, peak_end=peak_end)
 
+
     params = {
-        "energy": energy,
-        "cyl_height": cyl_height,
-        "peak_start": peak_start,
-        "peak_end": peak_end
-    }
+            "energy": energy,
+            "cyl_height": cyl_height,
+            "peak_start": peak_start,
+            "peak_end": peak_end
+        }
+
 
     os.mkdir(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}")
     with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/input_params.txt", "w") as f:
