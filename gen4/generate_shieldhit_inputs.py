@@ -1,0 +1,208 @@
+import os
+import re
+import random
+import shutil
+import json
+import sys
+import math
+from pathlib import Path
+import multiprocessing as mp
+
+gen_num = int(sys.argv[1])
+peaks_filename = sys.argv[2]
+
+HOME = f"/home/michal/slrm/gen{gen_num}"
+SAVE_DATA_LOCATION = f"/home/michal/slrm/gen{gen_num}"
+if os.getenv("PLG_GROUPS_STORAGE"):
+    HOME = f"/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen{gen_num}"
+    SAVE_DATA_LOCATION = os.environ["PLG_GROUPS_STORAGE"] + f"/plggccbmc/mgodek/gen{gen_num}"
+os.chdir(HOME)
+
+def create_save_data_dir():
+    if not Path(SAVE_DATA_LOCATION).exists():
+        Path(SAVE_DATA_LOCATION).mkdir()
+create_save_data_dir()
+
+def get_new_batch_num():
+    reg = r"^batch\d+$"
+    mx = -1
+    for i in os.listdir(SAVE_DATA_LOCATION):
+        if re.search(pattern=reg, string=i):
+            n  = int(i.lstrip("batch"))
+            if mx < n:
+                mx = n
+    return mx + 1
+
+def generate_8digit_seed():
+    a = random.randrange(10**8, 10**9, 1)
+    return a
+
+
+with open(Path(HOME, peaks_filename), "r") as peaks_file:
+    peaks_z_ranges = peaks_file.readlines()
+
+
+
+BATCH_NUM = get_new_batch_num()
+
+a = input(f"Will generate batch {BATCH_NUM} in {SAVE_DATA_LOCATION} continue? (y)/n ")
+if a == "n":
+    sys.exit(0)
+
+random.seed(42)
+
+energies = [en for en in range(20, 250, 10)]
+# energies = [en/2 for en in range(40, 500, 1)]
+SEEDS_PER_ENERGY = 1
+SIMULATIONS_TO_RUN = len(energies)*SEEDS_PER_ENERGY
+EXPONENT = 1.77
+ALPHA = 0.0035
+
+
+
+
+BATCH_NUM = get_new_batch_num()
+print(BATCH_NUM)    
+os.mkdir(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}")
+ctr = 0
+
+energies_seeds = []
+
+for energy, peak_z_range in zip(energies, peaks_z_ranges):
+    for generated_random_seed in [generate_8digit_seed() for _ in range(SEEDS_PER_ENERGY)]:
+        energies_seeds.append((energy, generated_random_seed, ctr, peak_z_range))
+        ctr += 1
+
+
+def generate_inputs(inputs):
+    energy, generated_random_seed, ctr, peak_z_range = inputs
+    with open(Path(HOME, "templates", "beam"), "r") as f:
+        new_beam_file = f.read()
+    new_beam_file = new_beam_file.format(random_seed=generated_random_seed, energy_mean=energy)
+    
+    cyl_height=str(math.floor(10000*ALPHA*energy**EXPONENT)/10000)
+    peak_start, peak_end = peak_z_range.rstrip().split(",")
+    
+    with open(Path(HOME, "templates", "geo"),"r") as f:
+        new_geo_file = f.read()
+    new_geo_file = new_geo_file.format(cyl_height=cyl_height)
+
+    with open(Path(HOME, "templates", "detect"),"r") as f:
+        new_detect_file = f.read()
+    new_detect_file = new_detect_file.format(cyl_height=cyl_height, peak_start=peak_start, peak_end=peak_end)
+
+    params = {
+        "energy": energy,
+        "cyl_height": cyl_height,
+        "peak_start": peak_start,
+        "peak_end": peak_end
+    }
+
+    os.mkdir(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}")
+    with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/input_params.txt", "w") as f:
+        json.dump(params, f, ensure_ascii=False, indent=2)
+    with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/beam.dat","w") as f:
+        f.write(new_beam_file)
+    with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/geo.dat","w") as f:
+        f.write(new_geo_file)
+    with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_{ctr}/detect.dat","w") as f:
+        f.write(new_detect_file)
+
+
+with mp.Pool() as pool:
+    results = pool.map(generate_inputs, energies_seeds, chunksize=1)
+
+
+
+
+def copy_templates(target_dir):
+    # shutil.copyfile("./templates/detect-template", target_dir+"/detect.dat")
+    # shutil.copyfile("./templates/geo-template", target_dir+"/geo.dat")
+    shutil.copyfile(Path(HOME, "templates", "mat"), Path(target_dir,"mat.dat"))
+
+
+
+copy_templates(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}")
+
+
+with open(f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/batch_params", "w") as f:
+    json.dump({
+        "exponent": EXPONENT,
+        "alpha": ALPHA,
+        "energies": energies
+    }, f, ensure_ascii=False, indent=2)
+
+print(f"batch_{BATCH_NUM}: generated {SIMULATIONS_TO_RUN} simulations")
+
+
+
+import pathlib
+import os
+
+os.chdir(SAVE_DATA_LOCATION)
+def look_directory(dic, look_for_files_directory):
+    for file in os.listdir(look_for_files_directory):
+        for key in list(dic.keys()):
+            if not dic[key] and key in file:
+                dic[key] = os.path.join(look_for_files_directory, file)
+ 
+def look_above(dic, current_dir, k=1):
+    pth = os.path.dirname(current_dir)
+    for i in range(k-1):
+        pth  = os.path.dirname(pth)
+    look_directory(dic, pth)
+
+
+dir_template = f"{SAVE_DATA_LOCATION}/batch{BATCH_NUM}/_"+"{run_num}" 
+
+lines = ""
+
+for run_num in range(SIMULATIONS_TO_RUN):
+    sim_dir = dir_template.format(batch_num=str(BATCH_NUM), run_num = str(run_num))
+    current_dir = SAVE_DATA_LOCATION
+    output_path = pathlib.Path(sim_dir, "output")
+    try:
+        os.mkdir(output_path)
+    except FileExistsError:
+        pass
+    os.chdir(output_path)
+    files_directories ={
+            "detect": "",
+            "geo": "",
+            "beam": "",
+            "mat": ""
+        }
+    look_above(files_directories, os.getcwd())
+    look_above(files_directories, os.getcwd(), 2)
+    os.chdir(current_dir)
+
+    beam_file = files_directories["beam"]
+    geo_file = files_directories["geo"]
+    mat_file = files_directories["mat"]
+    detect_file = files_directories["detect"]
+
+    lines += f"shieldhit -b {beam_file} -g {geo_file} -m {mat_file} -d {detect_file} {output_path}\n"
+        
+def generate_shieldhit_inputs():
+    os.chdir(HOME)
+
+    with open(Path(HOME,f"commands_batch{BATCH_NUM}"), "w") as commands:
+        commands.write(lines)
+
+
+    with open("hq_job_array_template", "r") as f:
+        hq_template = f.read()
+
+    hq_template = hq_template.replace("{num_simulations}", str(SIMULATIONS_TO_RUN-1)).replace("{home}", HOME).replace("{batch_num}", f"{BATCH_NUM}")
+    with open("hq_job_array.sh", "w") as f:
+        f.write(hq_template)
+
+    with open("run_shieldhit_cyfronet_template", "r") as f:
+        template = f.read()
+    template = template.replace("{batch_num}", f"{BATCH_NUM}").replace("{data_location}", SAVE_DATA_LOCATION)
+    with open(f"run_shieldhit_cyfronet_batch{BATCH_NUM}.sh", "w") as script:
+        script.write(template)
+
+generate_shieldhit_inputs()
+
+# print("Run it with:\n",f"sbatch --array=0-{SIMULATIONS_TO_RUN-1} --mem-per-cpu=1G run_shieldhit.sh")
