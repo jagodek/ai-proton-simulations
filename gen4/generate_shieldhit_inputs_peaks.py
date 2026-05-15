@@ -85,7 +85,7 @@ def generate_inputs(inputs):
     
     cyl_height=str(math.floor(10000*ALPHA*energy**EXPONENT)/10000)
     
-    peak_r = str(math.floor(10000*(-0.0213043*energy+5.426087))/10000)
+    peak_r = str(-1+energy*0.06)
 
     with open(Path(HOME, "templates", "geo-template-height"),"r") as f:
         new_geo_file = f.read()
