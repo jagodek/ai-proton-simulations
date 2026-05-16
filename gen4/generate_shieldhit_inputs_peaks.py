@@ -51,9 +51,9 @@ if a == "n":
 
 random.seed(42)
 
-energies = [en for en in range(20, 250, 10)]
+energies = [en for en in range(20, 250, 20)]
 # energies = [en/2 for en in range(40, 500, 1)]
-SEEDS_PER_ENERGY = 1
+SEEDS_PER_ENERGY = 2
 SIMULATIONS_TO_RUN = len(energies)*SEEDS_PER_ENERGY
 EXPONENT = 1.77
 ALPHA = 0.0035
@@ -85,7 +85,7 @@ def generate_inputs(inputs):
     
     cyl_height=str(math.floor(10000*ALPHA*energy**EXPONENT)/10000)
     
-    peak_r = str(-1+energy*0.06)
+    peak_r = str(math.floor(10000*(4.48e-4*energy**1.555))/10000)
 
     with open(Path(HOME, "templates", "geo-template-height"),"r") as f:
         new_geo_file = f.read()
