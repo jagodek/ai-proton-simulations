@@ -40,7 +40,7 @@ normalized_x = (data_x - x_min) / (x_max-x_min)
 normalized_data_dose = data_dose/max_dose
 normalized_data_fluence_protons = data_fluence_protons/max_fluence_protons
 normalized_data_dlet_protons = data_dlet_protons/max_dlet_protons
-
+unique_xs = normalized_x[::seeds_per_energy]
 
 test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
 data_dose_test = test_data["data_dose_test"]
@@ -65,28 +65,11 @@ weights_mask = np.ones((len(averaged_data_fluence),400))
 for i in range(len(averaged_data_fluence)):
     max_fluence_in_i = np.max(averaged_data_fluence[i])
     for k in range(400):
-        if averaged_data_fluence[i][k] < 0.01*max_fluence_in_i:
+        if averaged_data_fluence[i][k] < 0.001*max_fluence_in_i:
             weights_mask[i][:k] = 100
             break
 
 
-def weighted_mse_loss(x, pred, target):
-    """
-    pred, target: [batch, n_bins]
-    weights:      [1, n_bins]  (broadcasts over batch)
-    """
-    indices = []
-    for x_series in x:
-        indice  = np.where((normalized_x == x_series.cpu()).all(axis=1))[0][0]
-        indices.append(indice//seeds_per_energy)
-
-    sq_err_batch = (pred - target) ** 2          # [batch, n_bins]\
-    weighted = []
-    for j,sq_err in enumerate(sq_err_batch):
-        weighted.append(sq_err.cpu() * weights_mask[indices[j]])        # [batch, n_bins]
-    
-    weighted = np.array(weighted)
-    return weighted.mean()
 
 
 with open(LOGS_PATH,"w+") as f:
@@ -153,6 +136,25 @@ Y = torch.stack([
 X_tensor = torch.tensor(normalized_x, dtype=torch.float32).to(device)
 n_samples = n_samples = len(X_tensor)
 
+
+weights_mask = np.repeat(weights_mask[:, np.newaxis, :], 3, axis=1)
+weights_tensor = torch.tensor(weights_mask, device=device)
+
+def weighted_mse_loss(idx, pred, target):
+    eps = 1e-6
+    # print(idx.tolist())
+    # print("indices ", len(indices))
+    sq_err_batch = (pred - target) / (target.abs() + eps)
+    # print("sq_err ", sq_err_batch.shape)
+    
+    indexes = idx.detach().cpu().numpy() // seeds_per_energy
+    # batch_weights = torch.tensor(np.repeat(weights_mask[indices_tensor][:, np.newaxis, :], 3, axis=1), device=pred.device)
+    # print("weights_tensor", weights_tensor.shape)
+    weighted = (sq_err_batch**2) * weights_tensor[indexes]
+    return weighted.mean()
+
+
+
 class Model(nn.Module):
     def __init__(self):
         super().__init__()
@@ -204,7 +206,8 @@ for epoch in range(total_epochs):
 
         optimizer.zero_grad()
         pred = model(x_batch)
-        loss = weighted_mse_loss(x_batch, pred, y_batch)
+        # loss = weighted_mse_loss(idx, pred, y_batch)
+        loss = criterion(pred, y_batch)
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
@@ -232,16 +235,14 @@ def save_checkpoints():
         best_losses_history.write(f"{final_test_loss_wholes},{final_test_loss_halves}\n")
     with open(Path(HOME,CHECKPOINTS_DIR_NAME, "best_losses_history"), "r") as best_losses_history:
         losses_number = len(best_losses_history.readlines())-1
+    torch.save(model.state_dict(), Path(HOME,CHECKPOINTS_DIR_NAME,f"best{str(losses_number)}.pth"))
+    torch.save(model, Path(HOME,CHECKPOINTS_DIR_NAME,f"best_model{str(losses_number)}.pth"))
     with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_loss"), "w") as best_loss_file:
         best_loss_file.write(f"{final_test_loss_wholes},{final_test_loss_halves}")
         # os.makedirs('./checkpoints', exist_ok=True)
-    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_code"+str(losses_number)), "w") as best_code_file:
-        with open(Path(HOME,"tmp","train_model_loop.py"), "r") as current_code_file:
-            best_code_file.write(current_code_file.read())
-
-    torch.save(model.state_dict(), Path(HOME,CHECKPOINTS_DIR_NAME,f"best{str(losses_number)}.pth"))
-    torch.save(model, Path(HOME,CHECKPOINTS_DIR_NAME,f"best_model{str(losses_number)}.pth"))
-
+    # with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_code"+str(losses_number)), "w") as best_code_file:
+    #     with open(Path(HOME,"tmp","train_model_initial_wieghted_loss.py"), "r") as current_code_file:
+    #         best_code_file.write(current_code_file.read())
 
 alpha = 0.75
 if not Path(HOME, CHECKPOINTS_DIR_NAME).is_dir():
