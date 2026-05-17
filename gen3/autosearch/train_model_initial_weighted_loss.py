@@ -22,6 +22,14 @@ data_dose = training_data["data_dose"]
 data_fluence_protons = training_data["data_fluence_protons"]
 data_dlet_protons = training_data["data_dlet_protons"]
 data_x = training_data["data_x"]
+
+seeds_per_energy = 0
+for i,x in enumerate(data_x):
+    if float(x) == data_x[0]:
+        seeds_per_energy += 1
+    else:
+        break
+
 print(f"Training on energies [{data_x[0],data_x[1]}...{data_x[-2],data_x[-1]}")
 x_min, x_max = np.min(data_x), np.max(data_x)
 max_dose = np.max(data_dose)
@@ -43,7 +51,43 @@ data_x_test = test_data["data_x_test"]
 normalized_x_test = (data_x_test - x_min) / (x_max-x_min)
 normalized_data_dose_test = data_dose_test/max_dose
 normalized_data_fluence_protons_test = data_fluence_protons_test/max_fluence_protons
-normalized_data_dlet_protons_test = data_dlet_protons_test/max_dlet_protons      
+normalized_data_dlet_protons_test = data_dlet_protons_test/max_dlet_protons
+
+
+
+reshaped_data_dose = data_dose.reshape(seeds_per_energy, -1, 400)
+averaged_data_dose = reshaped_data_dose.mean(axis=1)
+
+reshaped_data_fluence = data_fluence_protons.reshape(-1,seeds_per_energy,  400)
+averaged_data_fluence = reshaped_data_fluence.mean(axis=1)
+weights_mask = np.ones((len(averaged_data_fluence),400))
+
+for i in range(len(averaged_data_fluence)):
+    max_fluence_in_i = np.max(averaged_data_fluence[i])
+    for k in range(400):
+        if averaged_data_fluence[i][k] < 0.01*max_fluence_in_i:
+            weights_mask[i][:k] = 100
+            break
+
+
+def weighted_mse_loss(x, pred, target):
+    """
+    pred, target: [batch, n_bins]
+    weights:      [1, n_bins]  (broadcasts over batch)
+    """
+    indices = []
+    for x_series in x:
+        indice  = np.where((normalized_x == x_series.cpu()).all(axis=1))[0][0]
+        indices.append(indice//seeds_per_energy)
+
+    sq_err_batch = (pred - target) ** 2          # [batch, n_bins]\
+    weighted = []
+    for j,sq_err in enumerate(sq_err_batch):
+        weighted.append(sq_err.cpu() * weights_mask[indices[j]])        # [batch, n_bins]
+    
+    weighted = np.array(weighted)
+    return weighted.mean()
+
 
 with open(LOGS_PATH,"w+") as f:
     pass
@@ -140,7 +184,7 @@ class Model(nn.Module):
 
         return torch.stack([dose, fluence, let], dim=1)
 
-batch_size = 64
+batch_size = 128
 total_epochs = 600
 
 model     = Model().to(device)
@@ -160,7 +204,7 @@ for epoch in range(total_epochs):
 
         optimizer.zero_grad()
         pred = model(x_batch)
-        loss = criterion(pred, y_batch)
+        loss = weighted_mse_loss(x_batch, pred, y_batch)
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
