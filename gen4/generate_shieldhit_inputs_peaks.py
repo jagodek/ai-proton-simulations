@@ -51,9 +51,9 @@ if a == "n":
 
 random.seed(42)
 
-energies = [en for en in range(20, 250, 20)]
+energies = [en for en in range(20, 251, 1)]
 # energies = [en/2 for en in range(40, 500, 1)]
-SEEDS_PER_ENERGY = 2
+SEEDS_PER_ENERGY = 30
 SIMULATIONS_TO_RUN = len(energies)*SEEDS_PER_ENERGY
 EXPONENT = 1.77
 ALPHA = 0.0035
@@ -79,7 +79,7 @@ def generate_inputs(inputs):
     energy, generated_random_seed, ctr, peak_z_range = inputs
     peak_start, peak_end = peak_z_range.rstrip().split(",")
 
-    with open(Path(HOME, "templates", "beam-template-tmp"), "r") as f:
+    with open(Path(HOME, "templates", "beam-template"), "r") as f:
         new_beam_file = f.read()
     new_beam_file = new_beam_file.format(random_seed=generated_random_seed, energy_mean=energy)
     

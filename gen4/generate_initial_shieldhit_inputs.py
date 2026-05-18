@@ -21,7 +21,7 @@ os.chdir(HOME)
 
 TEMPLATE_MAT = "mat.dat"
 TEMPLATE_DET = "detect-template-height"
-TEMPLATE_BEAM = "beam-template-tmp"
+TEMPLATE_BEAM = "beam-template"
 TEMPLATE_GEO = "geo-template-height"
 
 def create_save_data_dir():
@@ -51,7 +51,7 @@ if console_message == "n":
 
 random.seed(42)
 
-energies = [en for en in range(20, 250, 20)]
+energies = [en for en in range(20, 251, 1)]
 # energies = [en/2 for en in range(40, 500, 1)]
 SEEDS_PER_ENERGY = 1
 SIMULATIONS_TO_RUN = len(energies)*SEEDS_PER_ENERGY
