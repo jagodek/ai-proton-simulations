@@ -5,4 +5,4 @@
 *.stderr
 */hq-server/*
 .env
-.history
+.history/*
