@@ -8,22 +8,26 @@ import re
 from dotenv import load_dotenv
 from pathlib import Path
 
-HOME = "/home/michal/slrm/gen3/autosearch/"
-if os.getenv("PLG_GROUPS_STORAGE"):
-    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
-LOGS_PATH = Path(HOME, "tmp", "logs")
-LOOP_TRAINING_SCRIPT = Path(HOME, "tmp", "train_model_loop.py")
-
-if not Path(HOME, "tmp").is_dir():
-    Path(HOME, "tmp").mkdir()
-if not Path(HOME, "checkpoints").is_dir():
-    Path(HOME, "checkpoints").mkdir()
 
 slurm_job_id = ""
 if len(sys.argv) == 2:
     slurm_job_id = str(sys.argv[1])
 
-HISTORY_FILE_NAME = "history_log_" + slurm_job_id
+HOME = "/home/michal/slrm/gen3/autosearch/"
+if os.getenv("PLG_GROUPS_STORAGE"):
+    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
+TMP_DIR = Path(HOME, "tmp"+slurm_job_id)
+LOGS_PATH = Path(TMP_DIR, "logs")
+LOOP_TRAINING_SCRIPT = Path(TMP_DIR, "train_model_loop.py")
+print(f"logs path {LOGS_PATH}")
+
+if not Path(TMP_DIR).is_dir():
+    Path(TMP_DIR).mkdir()
+if not Path(TMP_DIR, "checkpoints").is_dir():
+    Path(TMP_DIR, "checkpoints").mkdir()
+
+
+HISTORY_FILE_NAME = "history_log_" + slurm_job_id + ".txt"
 model = "Qwen/Qwen3.5-397B-A17B-FP8"
 
 load_dotenv(Path(HOME, ".env"))
@@ -219,28 +223,35 @@ history_record = {}
 history_record["response"] = response
 
 
-with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
+with open(Path(TMP_DIR, HISTORY_FILE_NAME), "a+") as history_file:
     history_file.write(f"Training autosearch date: {time.asctime()}\n")
 
+
+number_of_runs = 1
 
 def run_training(history_record):
     success_flag = False
     limit = 10
     limit_ctr = 0
+    global number_of_runs
 
+    with open(Path(TMP_DIR, HISTORY_FILE_NAME), "a+") as history_file:
+        history_file.write(
+            f"==============\n======= Training number {number_of_runs} ===========\n==============\n"
+            )
     while not success_flag and limit_ctr < limit:
-        with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
+        with open(Path(TMP_DIR, HISTORY_FILE_NAME), "a+") as history_file:
             config = extract_config(history_record["response"])
             history_file.write(history_record["response"]+"/n")
             for key, value in json.loads(config).items():
-                history_file.write("====="+key + "=====\n"+ value+"\n")
+                history_file.write("============="+key + "============\n"+ value+"\n")
 
         result = subprocess.run(
             [sys.executable, LOOP_TRAINING_SCRIPT, slurm_job_id], capture_output=True, text=True
         )
         if result.returncode != 0:
             history_record["logs"] = result.stderr
-            with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
+            with open(Path(TMP_DIR, HISTORY_FILE_NAME), "a+") as history_file:
                 history_file.write(history_record["logs"] + "\n")
             # history.append(history_record)
 
@@ -280,7 +291,9 @@ def run_training(history_record):
     with open(LOGS_PATH, "r") as logs_file:
         logs = logs_file.read()
     history_record["logs"] = logs
-    with open(Path(HOME, HISTORY_FILE_NAME), "a+") as history_file:
+    number_of_runs += 1
+    with open(Path(TMP_DIR, HISTORY_FILE_NAME), "a+") as history_file:
+        history_file.write(f" ===================  Logs for run number {number_of_runs} =================\n")
         history_file.write(history_record["logs"] + "\n")
 
 

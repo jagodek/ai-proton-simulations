@@ -20,7 +20,8 @@ HOME = "/home/michal/slrm/gen3/autosearch"
 if os.getenv("PLG_GROUPS_STORAGE"):
     HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
 
-LOGS_PATH = Path(HOME, "tmp", "logs")
+TMP_DIR = Path(HOME, "tmp"+slurm_job_id)
+LOGS_PATH = Path(TMP_DIR, "logs")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
@@ -100,8 +101,8 @@ n_samples = len(X_tensor)
 {model_definition}
 
 
-batch_size = 64
-total_epochs = 600
+batch_size = 100
+total_epochs = 100
 
 model = Model().to(device)
 optimizer = {optimizer_definition}
@@ -117,32 +118,32 @@ start_training = time.time()
 
 final_test_loss = test_model(model, criterion, device)
 
-CHECKPOINTS_DIR_NAME = "checkpoints"+slurm_job_id
+CHECKPOINTS_DIR_NAME = "checkpoints"
 def save_checkpoints():
-    with open(Path(HOME,CHECKPOINTS_DIR_NAME, "best_losses_history"), "a") as best_losses_history:
+    with open(Path(TMP_DIR,CHECKPOINTS_DIR_NAME, "best_losses_history"), "a") as best_losses_history:
         best_losses_history.write(str(final_test_loss)+"\n")
-    with open(Path(HOME,CHECKPOINTS_DIR_NAME, "best_losses_history"), "r") as best_losses_history:
+    with open(Path(TMP_DIR,CHECKPOINTS_DIR_NAME, "best_losses_history"), "r") as best_losses_history:
         losses_number = len(best_losses_history.readlines())-1
-    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_loss"), "w") as best_loss_file:
+    with open(Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_loss"), "w") as best_loss_file:
         best_loss_file.write(str(final_test_loss))
         # os.makedirs('./checkpoints', exist_ok=True)
-    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_code"+str(losses_number)), "w") as best_code_file:
-        with open(Path(HOME,"tmp","train_model_loop.py"), "r") as current_code_file:
+    with open(Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_code"+str(losses_number)), "w") as best_code_file:
+        with open(Path(TMP_DIR,"train_model_loop.py"), "r") as current_code_file:
             best_code_file.write(current_code_file.read())
 
-    torch.save(model.state_dict(), Path(HOME,CHECKPOINTS_DIR_NAME,f"best{str(losses_number)}.pth"))
-    torch.save(model, Path(HOME,CHECKPOINTS_DIR_NAME,f"best_model{str(losses_number)}.pth"))
+    torch.save(model.state_dict(), Path(TMP_DIR,CHECKPOINTS_DIR_NAME,f"best{str(losses_number)}.pth"))
+    torch.save(model, Path(TMP_DIR,CHECKPOINTS_DIR_NAME,f"best_model{str(losses_number)}.pth"))
 
 
 
-if not Path(HOME, CHECKPOINTS_DIR_NAME).is_dir():
-    Path(HOME, CHECKPOINTS_DIR_NAME).mkdir()
-    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_losses_history"),"w"):
+if not Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_losses_history").is_file():
+    # Path(TMP_DIR, CHECKPOINTS_DIR_NAME).mkdir()
+    with open(Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_losses_history"),"w"):
         pass
-    Path(HOME, CHECKPOINTS_DIR_NAME, "")
+    Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "")
     save_checkpoints()
 else:
-    with open(Path(HOME, CHECKPOINTS_DIR_NAME, "best_loss"), "r") as best_loss_file:
+    with open(Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_loss"), "r") as best_loss_file:
         best_loss = float(best_loss_file.readline())
 
     if final_test_loss < best_loss:
