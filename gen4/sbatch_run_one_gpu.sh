@@ -1,8 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=run_training
 #SBATCH --time=01:20:00
+#SBATCH --account=plgccbmc14-gpu-a100
+#SBATCH --partition=plgrid-gpu-a100
 #SBATCH --cpus-per-task=4
+#SBATCH --mem=64G
+#SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
+#SBATCH -C memfs 
+
 
 cd $MEMFS
 ml foss/2025a
