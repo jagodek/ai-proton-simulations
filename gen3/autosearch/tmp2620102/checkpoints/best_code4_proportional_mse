@@ -41,7 +41,7 @@ normalized_data_fluence_protons = data_fluence_protons / max_fluence_protons
 normalized_data_dlet_protons = data_dlet_protons / max_dlet_protons
 
 seeds_per_energy = 0
-for i,x in enumerate(data_x):
+for i,x in enumerate(data_x.reshape(-1)):
     if float(x) == data_x[0]:
         seeds_per_energy += 1
     else:

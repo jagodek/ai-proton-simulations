@@ -41,7 +41,7 @@ normalized_data_fluence_protons = data_fluence_protons / max_fluence_protons
 normalized_data_dlet_protons = data_dlet_protons / max_dlet_protons
 
 seeds_per_energy = 0
-for i,x in enumerate(data_x):
+for i,x in enumerate(data_x.reshape(-1)):
     if float(x) == data_x[0]:
         seeds_per_energy += 1
     else:
@@ -72,7 +72,7 @@ for i in range(len(averaged_data_fluence)):
             break
 weights_mask_train = weights_mask_train / weights_mask_train.mean(axis=1, keepdims=True)
 
-weights_mask_train = np.repeat(weights_mask_train[:, np.newaxis, :], 3, axis=1)
+#weights_mask_train = np.repeat(weights_mask_train[:, np.newaxis, :], 3, axis=1)
 weights_tensor_train = torch.tensor(weights_mask_train, device=device)
 
 
@@ -269,9 +269,9 @@ for epoch in range(total_epochs):
         pred = model(x_batch)
         
         # Channel-weighted Huber loss (dose most important)
-        dose_loss = weighted_mse_loss(pred[:, 0, :], y_batch[:, 0, :])
-        fluence_loss = weighted_mse_loss(pred[:, 1, :], y_batch[:, 1, :])
-        let_loss = weighted_mse_loss(pred[:, 2, :], y_batch[:, 2, :])
+        dose_loss = weighted_mse_loss(pred[:, 0, :], y_batch[:, 0, :],idx)
+        fluence_loss = weighted_mse_loss(pred[:, 1, :], y_batch[:, 1, :],idx)
+        let_loss = weighted_mse_loss(pred[:, 2, :], y_batch[:, 2, :],idx)
         base_loss = 0.5 * dose_loss + 0.3 * fluence_loss + 0.2 * let_loss
         
         # Second derivative smoothness (curvature penalty)
