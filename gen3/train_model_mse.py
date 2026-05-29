@@ -132,5 +132,4 @@ for epoch in range(total_epochs):
 
 CHECKPOINTS_DIR_NAME = 'checkpoints'+slurm_job_id
 os.makedirs(Path(HOME, CHECKPOINTS_DIR_NAME), exist_ok=True)
-torch.save(Path(HOME, CHECKPOINTS_DIR_NAME), './checkpoints/model.pth')
-
+torch.save(model.state_dict(), Path(HOME, CHECKPOINTS_DIR_NAME, 'model.pth'))
