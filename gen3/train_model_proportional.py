@@ -11,9 +11,9 @@ slurm_job_id = ""
 if len(sys.argv) == 2:
     slurm_job_id = str(sys.argv[1])
 
-HOME = "/home/michal/slrm/gen3/autosearch"
+HOME = "/home/michal/slrm/gen3"
 if os.getenv("PLG_GROUPS_STORAGE"):
-    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
+    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3"
 LOGS_PATH = Path(HOME, "tmp", "logs") 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -35,16 +35,16 @@ normalized_data_fluence_protons = data_fluence_protons/max_fluence_protons
 normalized_data_dlet_protons = data_dlet_protons/max_dlet_protons
 
 
-test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
-data_dose_test = test_data["data_dose_test"]
-data_fluence_protons_test = test_data["data_fluence_protons_test"]
-data_dlet_protons_test = test_data["data_dlet_protons_test"]
-data_x_test = test_data["data_x_test"]
+# test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
+# data_dose_test = test_data["data_dose_test"]
+# data_fluence_protons_test = test_data["data_fluence_protons_test"]
+# data_dlet_protons_test = test_data["data_dlet_protons_test"]
+# data_x_test = test_data["data_x_test"]
 
-normalized_x_test = (data_x_test - x_min) / (x_max-x_min)
-normalized_data_dose_test = data_dose_test/max_dose
-normalized_data_fluence_protons_test = data_fluence_protons_test/max_fluence_protons
-normalized_data_dlet_protons_test = data_dlet_protons_test/max_dlet_protons      
+# normalized_x_test = (data_x_test - x_min) / (x_max-x_min)
+# normalized_data_dose_test = data_dose_test/max_dose
+# normalized_data_fluence_protons_test = data_fluence_protons_test/max_fluence_protons
+# normalized_data_dlet_protons_test = data_dlet_protons_test/max_dlet_protons      
 
 
 def proportional_mse_loss(pred, target):
@@ -130,7 +130,8 @@ for epoch in range(total_epochs):
         )
 
 
+CHECKPOINTS_DIR_NAME = 'checkpoints'+slurm_job_id
+os.makedirs(Path(HOME, CHECKPOINTS_DIR_NAME), exist_ok=True)
+torch.save(Path(HOME, CHECKPOINTS_DIR_NAME), './checkpoints/model.pth')
 
-os.makedirs('./checkpoints'+slurm_job_id, exist_ok=True)
-torch.save(model.state_dict(), './checkpoints/model.pth')
 
