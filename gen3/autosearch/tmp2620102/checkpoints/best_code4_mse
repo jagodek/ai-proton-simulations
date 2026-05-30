@@ -1,0 +1,312 @@
+import os
+import time
+import sys
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import math
+from pathlib import Path
+
+
+
+
+
+slurm_job_id = "2620102"
+# if len(sys.argv) == 2:
+#     slurm_job_id = str(sys.argv[1])
+
+HOME = "/home/michal/slrm/gen3/autosearch"
+if os.getenv("PLG_GROUPS_STORAGE"):
+    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3/autosearch"
+
+TMP_DIR = Path(HOME, "tmp"+slurm_job_id)
+LOGS_PATH = Path(TMP_DIR, "logs")
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Device: {device}")
+training_data = np.load(Path(HOME,"training_data_g3batch7.npz"))
+data_dose = training_data["data_dose"]
+data_fluence_protons = training_data["data_fluence_protons"]
+data_dlet_protons = training_data["data_dlet_protons"]
+data_x = training_data["data_x"]
+x_min, x_max = np.min(data_x), np.max(data_x)
+max_dose = np.max(data_dose)
+max_fluence_protons = np.max(data_fluence_protons)
+max_dlet_protons = np.max(data_dlet_protons)
+
+normalized_x = (data_x - x_min) / (x_max - x_min)
+normalized_data_dose = data_dose / max_dose
+normalized_data_fluence_protons = data_fluence_protons / max_fluence_protons
+normalized_data_dlet_protons = data_dlet_protons / max_dlet_protons
+
+
+test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
+data_dose_test = test_data["data_dose_test"]
+data_fluence_protons_test = test_data["data_fluence_protons_test"]
+data_dlet_protons_test = test_data["data_dlet_protons_test"]
+data_x_test = test_data["data_x_test"]
+
+normalized_x_test = (data_x_test - x_min) / (x_max - x_min)
+normalized_data_dose_test = data_dose_test / max_dose
+normalized_data_fluence_protons_test = data_fluence_protons_test / max_fluence_protons
+normalized_data_dlet_protons_test = data_dlet_protons_test / max_dlet_protons
+
+# with open(LOGS_PATH, "w+") as f:
+#     pass
+
+
+def test_model(model, criterion, device):
+    """
+    Evaluates the trained model on the test dataset.
+    """
+    model.eval()
+
+    Y_test = torch.stack(
+        [
+            torch.tensor(normalized_data_dose_test, dtype=torch.float32),
+            torch.tensor(normalized_data_fluence_protons_test, dtype=torch.float32),
+            torch.tensor(normalized_data_dlet_protons_test, dtype=torch.float32),
+        ],
+        dim=1,
+    ).to(device)
+
+    X_test_tensor = torch.tensor(data_x_test, dtype=torch.float32).to(device)
+
+
+    with torch.no_grad():
+        predictions = model(X_test_tensor)
+        test_loss = criterion(predictions, Y_test).item()
+    criterion_name = criterion.__class__.__name__
+    print(f"\n--- Model Evaluation ---")
+    print(f"Total Test {criterion_name}: {test_loss:.4e}")
+    # with open(LOGS_PATH, "a+") as logs_file:
+    #     logs_file.write(f"Total Test {criterion_name}: {test_loss:.4e}")
+    return test_loss
+
+
+
+Y = torch.stack(
+    [
+        torch.tensor(normalized_data_dose, dtype=torch.float32),
+        torch.tensor(normalized_data_fluence_protons, dtype=torch.float32),
+        torch.tensor(normalized_data_dlet_protons, dtype=torch.float32),
+    ],
+    dim=1,
+).to(device)
+X_tensor = torch.tensor(normalized_x, dtype=torch.float32).to(device)
+n_samples = len(X_tensor)
+
+
+class Model(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.n_segments = 400
+        self.hidden_dim = 256
+        
+        # Fourier features for capturing Bragg peak frequencies
+        self.freq_bands = 16
+        self.register_buffer('frequencies', 2.0 ** torch.linspace(0, 4, self.freq_bands))
+        
+        # Input embedding with Fourier features
+        self.input_embed = nn.Sequential(
+            nn.Linear(1 + 2*self.freq_bands, self.hidden_dim),
+            nn.LayerNorm(self.hidden_dim),
+            nn.SiLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.LayerNorm(self.hidden_dim),
+            nn.SiLU()
+        )
+        
+        # Deep trunk with residual connections
+        self.trunk_blocks = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.LayerNorm(self.hidden_dim),
+                nn.SiLU(),
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.LayerNorm(self.hidden_dim),
+            )
+            for _ in range(8)
+        ])
+        
+        # Task-specific processing
+        self.task_layers = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.LayerNorm(self.hidden_dim),
+                nn.SiLU(),
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.LayerNorm(self.hidden_dim),
+                nn.SiLU()
+            )
+            for _ in range(3)
+        ])
+        
+        # Output heads (Softplus for non-negative outputs)
+        self.head_dose = nn.Sequential(
+            nn.Linear(self.hidden_dim, self.n_segments),
+            nn.Softplus()
+        )
+        self.head_fluence = nn.Sequential(
+            nn.Linear(self.hidden_dim, self.n_segments),
+            nn.Softplus()
+        )
+        self.head_let = nn.Sequential(
+            nn.Linear(self.hidden_dim, self.n_segments),
+            nn.Softplus()
+        )
+        
+        # Learnable smoothing convolution for statistical noise reduction
+        self.smooth_conv = nn.Conv1d(
+            in_channels=3,
+            out_channels=3,
+            kernel_size=5,
+            padding=2,
+            groups=3,
+            bias=False
+        )
+        # Initialize with Gaussian kernel
+        with torch.no_grad():
+            gaussian_kernel = torch.exp(-torch.linspace(-2, 2, 5)**2 / 2)
+            gaussian_kernel = gaussian_kernel / gaussian_kernel.sum()
+            for i in range(3):
+                self.smooth_conv.weight[i, 0, :] = gaussian_kernel
+    
+    def encode_position(self, x):
+        phases = x * self.frequencies
+        return torch.cat([torch.sin(phases), torch.cos(phases)], dim=-1)
+    
+    def forward(self, energy: torch.Tensor) -> torch.Tensor:
+        if energy.dim() == 1:
+            energy = energy.unsqueeze(-1)
+        
+        # Fourier features
+        fourier = self.encode_position(energy)
+        x = torch.cat([energy, fourier], dim=-1)
+        
+        # Input embedding
+        features = self.input_embed(x)
+        
+        # Trunk with residual connections
+        for block in self.trunk_blocks:
+            features = features + block(features)
+            features = torch.nn.functional.silu(features)
+        
+        # Task-specific processing
+        dose_feat = self.task_layers[0](features)
+        fluence_feat = self.task_layers[1](features)
+        let_feat = self.task_layers[2](features)
+        
+        # Generate outputs
+        dose = self.head_dose(dose_feat)
+        fluence = self.head_fluence(fluence_feat)
+        let_val = self.head_let(let_feat)
+        
+        # Stack and apply smoothing
+        output = torch.stack([dose, fluence, let_val], dim=1)
+        output = self.smooth_conv(output)
+        
+        return output
+
+
+batch_size = 128
+total_epochs = 1000
+
+model = Model().to(device)
+optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=1e-4)
+scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=5e-4, epochs=total_epochs, steps_per_epoch=math.ceil(n_samples/batch_size), pct_start=0.3, anneal_strategy='cos')
+criterion = nn.MSELoss()
+
+
+model.train()
+start_training = time.time()
+
+
+for epoch in range(total_epochs):
+    train_loss = 0.0
+    smoothness_loss_total = 0.0
+    perm = torch.randperm(n_samples)
+    for i in range(0, n_samples, batch_size):
+        idx = perm[i:i+batch_size]
+        x_batch, y_batch = X_tensor[idx], Y[idx]
+        
+        optimizer.zero_grad()
+        pred = model(x_batch)
+        
+        # Channel-weighted Huber loss (dose most important)
+        dose_loss = criterion(pred[:, 0, :], y_batch[:, 0, :])
+        fluence_loss = criterion(pred[:, 1, :], y_batch[:, 1, :])
+        let_loss = criterion(pred[:, 2, :], y_batch[:, 2, :])
+        base_loss = 0.5 * dose_loss + 0.3 * fluence_loss + 0.2 * let_loss
+        
+        # Second derivative smoothness (curvature penalty)
+        smooth_loss = 0.0
+        for ch in range(3):
+            pred_ch = pred[:, ch, :]
+            second_deriv = pred_ch[:, 2:] - 2 * pred_ch[:, 1:-1] + pred_ch[:, :-2]
+            smooth_loss += torch.mean(second_deriv ** 2)
+        
+        # Combined loss
+        total_loss = base_loss + 0.015 * smooth_loss
+        
+        total_loss.backward()
+        
+        # Gradient clipping for stability
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
+        train_loss += base_loss.item()
+        smoothness_loss_total += smooth_loss.item()
+    num_batches = math.ceil(n_samples / batch_size)
+    train_loss /= num_batches
+    scheduler.step()
+    current_lr = optimizer.param_groups[0]['lr']
+
+
+    if epoch % 50 == 0:
+        print(
+            f"Epoch {epoch:>4d} | ",
+            f"Train loss: {train_loss:.4e} | ",
+            f"LR: {current_lr:.2e}",
+            f"Time: {time.time()-start_training:.2f}"
+        )
+        # with open(LOGS_PATH,"a+") as logs_file:
+        #     logs_file.write(
+        #         f"Epoch {epoch:>4d} | Train loss: {train_loss:.8e}  | LR: {current_lr:.2e} | Time: {time.time()-start_training:.2f}\n"
+        #     )
+
+# final_test_loss = test_model(model, criterion, device)
+
+CHECKPOINTS_DIR_NAME = "checkpoints"
+# def save_checkpoints():
+#     with open(Path(TMP_DIR,CHECKPOINTS_DIR_NAME, "best_losses_history"), "a") as best_losses_history:
+#         best_losses_history.write(str(final_test_loss)+"\n")
+#     with open(Path(TMP_DIR,CHECKPOINTS_DIR_NAME, "best_losses_history"), "r") as best_losses_history:
+#         losses_number = len(best_losses_history.readlines())-1
+#     with open(Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_loss"), "w") as best_loss_file:
+#         best_loss_file.write(str(final_test_loss))
+#         # os.makedirs('./checkpoints', exist_ok=True)
+#     with open(Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_code"+str(losses_number)), "w") as best_code_file:
+#         with open(Path(TMP_DIR,"train_model_loop.py"), "r") as current_code_file:
+#             best_code_file.write(current_code_file.read())
+
+#     torch.save(model.state_dict(), Path(TMP_DIR,CHECKPOINTS_DIR_NAME,f"best{str(losses_number)}.pth"))
+#     torch.save(model, Path(TMP_DIR,CHECKPOINTS_DIR_NAME,f"best_model{str(losses_number)}.pth"))
+
+
+
+# if not Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_losses_history").is_file():
+#     # Path(TMP_DIR, CHECKPOINTS_DIR_NAME).mkdir()
+#     with open(Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_losses_history"),"w"):
+#         pass
+#     Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "")
+#     save_checkpoints()
+# else:
+#     with open(Path(TMP_DIR, CHECKPOINTS_DIR_NAME, "best_loss"), "r") as best_loss_file:
+#         best_loss = float(best_loss_file.readline())
+
+#     if final_test_loss < best_loss:
+#         save_checkpoints()
+torch.save(model.state_dict(), Path(TMP_DIR,CHECKPOINTS_DIR_NAME,f"best4_mse.pth"))
+torch.save(model, Path(TMP_DIR,CHECKPOINTS_DIR_NAME,f"best_model4_mse.pth"))
