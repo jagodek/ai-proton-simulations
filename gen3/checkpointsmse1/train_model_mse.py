@@ -47,14 +47,6 @@ normalized_data_dlet_protons = data_dlet_protons/max_dlet_protons
 # normalized_data_dlet_protons_test = data_dlet_protons_test/max_dlet_protons      
 
 
-def proportional_mse_loss(pred, target):
-    eps = 1e-9
-    sq_err_batch = (pred - target) / (target.abs() + eps)
-
-    weighted = (sq_err_batch**2)
-
-    return weighted.mean()
-
 Y = torch.stack([
     torch.tensor(normalized_data_dose,    dtype=torch.float32),
     torch.tensor(normalized_data_fluence_protons, dtype=torch.float32),
@@ -100,7 +92,7 @@ total_epochs = 1000
 model     = Model().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20, factor=0.5)
-# criterion = nn.MSELoss()
+criterion = nn.MSELoss()
 
 model.train()
 start_training = time.time()
@@ -114,7 +106,7 @@ for epoch in range(total_epochs):
 
         optimizer.zero_grad()
         pred = model(x_batch)
-        loss = proportional_mse_loss(pred, y_batch)
+        loss = criterion(pred, y_batch)
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
