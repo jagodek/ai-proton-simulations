@@ -91,56 +91,85 @@ import plotly.io as pio
 pio.renderers.default = "notebook_connected" 
 
 # %%
-# plt.figure(figsize=(10,10))
-# for i in data_dose[::1]: 
-#     plt.plot(i)
-# plt.show()
+plt.figure(figsize=(10,10))
+for i in data_z_dose[::1]: 
+    plt.plot(i)
+plt.show()
 
+plt.figure(figsize=(10,10))
+for i in data_z_fluence_protons[::1]: 
+    plt.plot(i)
+plt.show()
 
-# plt.figure(figsize=(10,10))
-# for i in data_fluence_protons[::1]: 
-#     plt.plot(i)
-# plt.show()
+plt.figure(figsize=(10,10))
+for i in data_z_dlet_protons[::1]: 
+    plt.plot(i)
+plt.show()
 
-# plt.figure(figsize=(10,10))
-# for i in data_dlet_protons[::1]: 
-#     plt.plot(i)
-# plt.show()
+plt.figure(figsize=(10,10))
+for i in data_r_dose[::1]: 
+    plt.plot(i)
+plt.show()
+
+plt.figure(figsize=(10,10))
+for i in data_r_fluence_protons[::1]: 
+    plt.plot(i)
+plt.show()
+
+plt.figure(figsize=(10,10))
+for i in data_r_dlet_protons[::1]: 
+    plt.plot(i)
+plt.show()
 
 # %%
-# plt.figure(figsize=(10,10))
-# for i in data_dose_test[::1]: 
-#     plt.plot(i)
-# plt.show()
 
+plt.figure(figsize=(10,10))
+for i in data_z_dose_test[::1]: 
+    plt.plot(i)
+plt.show()
 
-# plt.figure(figsize=(10,10))
-# for i in data_fluence_protons_test[::1]: 
-#     plt.plot(i)
-# plt.show()
+plt.figure(figsize=(10,10))
+for i in data_z_fluence_protons_test[::1]: 
+    plt.plot(i)
+plt.show()
 
-# plt.figure(figsize=(10,10))
-# for i in data_dlet_protons_test[::1]: 
-#     plt.plot(i)
-# plt.show()
+plt.figure(figsize=(10,10))
+for i in data_z_dlet_protons_test[::1]: 
+    plt.plot(i)
+plt.show()
+
+plt.figure(figsize=(10,10))
+for i in data_r_dose_test[::1]: 
+    plt.plot(i)
+plt.show()
+
+plt.figure(figsize=(10,10))
+for i in data_r_fluence_protons_test[::1]: 
+    plt.plot(i)
+plt.show()
+
+plt.figure(figsize=(10,10))
+for i in data_r_dlet_protons_test[::1]: 
+    plt.plot(i)
+plt.show()
 
 # %%
 # fig, ax = plt.subplots(figsize=(10,10))
 # # plt.figure(figsize=(10,10))
 
 # ax.set_yscale('log', base=10)
-# for i in data_dose[::1]: 
+# for i in data_z_dose[::1]: 
 #     ax.plot(i)
 # fig.show()
 
 
 # plt.figure(figsize=(10,10))
-# for i in data_fluence_protons[::1]: 
+# for i in data_z_fluence_protons[::1]: 
 #     plt.plot(i)
 # plt.show()
 
 # plt.figure(figsize=(10,10))
-# for i in data_dlet_protons[::1]: 
+# for i in data_z_dlet_protons[::1]: 
 #     plt.plot(i)
 # plt.show()
 
@@ -155,9 +184,9 @@ pio.renderers.default = "notebook_connected"
 # x = list(range(400))
 
 # for i in range(1,31):
-#     fig.add_trace(go.Scatter(x=x, y=data_dose[-i,:], mode="lines", showlegend=False, opacity = 1, line={"color": "red"}))
+#     fig.add_trace(go.Scatter(x=x, y=data_z_dose[-i,:], mode="lines", showlegend=False, opacity = 1, line={"color": "red"}))
 #     # print(data_x[-i])
-# fig.add_trace(go.Scatter(x=x, y=data_dose_test[-1,:], mode="lines", showlegend=False, opacity = 1, line={"color": "blue"}))
+# fig.add_trace(go.Scatter(x=x, y=data_z_dose_test[-1,:], mode="lines", showlegend=False, opacity = 1, line={"color": "blue"}))
 # fig.show()
 
 # %% [markdown]
@@ -277,7 +306,7 @@ predictions.shape
 
 # %%
 plt.figure(figsize=(15,15))
-for i in predictions[:,0,:]:
+for i in predictions['dose_z']:
     plt.plot(i)
 
 # %%
@@ -640,10 +669,13 @@ test_predictions_halves = test_predictions[1::2]
 normalized_test_x_wholes, normalized_test_x_halves = normalized_x_test[::2], normalized_x_test[1::2]
 
 
-normalized_data_dose_test_wholes, normalized_data_dose_test_halves = normalized_data_z_dose_test[::2], normalized_data_z_dose_test[1::2] 
-normalized_data_fluence_protons_test_wholes, normalized_data_fluence_protons_test_halves = normalized_data_z_fluence_protons_test[::2], normalized_data_z_fluence_protons_test[1::2] 
-normalized_data_dlet_protons_test_wholes, normalized_data_dlet_protons_test_halves = normalized_data_z_dlet_protons_test[::2], normalized_data_z_dlet_protons_test[1::2] 
+normalized_data_z_dose_test_wholes, normalized_data_z_dose_test_halves = normalized_data_z_dose_test[::2], normalized_data_z_dose_test[1::2] 
+normalized_data_z_fluence_protons_test_wholes, normalized_data_z_fluence_protons_test_halves = normalized_data_z_fluence_protons_test[::2], normalized_data_z_fluence_protons_test[1::2] 
+normalized_data_z_dlet_protons_test_wholes, normalized_data_z_dlet_protons_test_halves = normalized_data_z_dlet_protons_test[::2], normalized_data_z_dlet_protons_test[1::2] 
 
+normalized_data_r_dose_test_wholes, normalized_data_r_dose_test_halves = normalized_data_r_dose_test[::2], normalized_data_r_dose_test[1::2] 
+normalized_data_r_fluence_protons_test_wholes, normalized_data_r_fluence_protons_test_halves = normalized_data_r_fluence_protons_test[::2], normalized_data_r_fluence_protons_test[1::2] 
+normalized_data_r_dlet_protons_test_wholes, normalized_data_r_dlet_protons_test_halves = normalized_data_r_dlet_protons_test[::2], normalized_data_r_dlet_protons_test[1::2] 
 # %%
 print(test_predictions.shape)
 
@@ -700,20 +732,20 @@ def plot_true_pred(true, pred, multiplier, quantity):
 
     fig.show()    
 
-plot_true_pred(normalized_data_dose_test_wholes, test_predictions_wholes[:,0,:], max_z_dose, "Dose")
+plot_true_pred(normalized_data_z_dose_test_wholes, test_predictions_wholes['dose_z'], max_z_dose, "Dose")
 
 
 # %% [markdown]
 # ### Fluence
 
 # %%
-plot_true_pred(normalized_data_fluence_protons_test_wholes[::], test_predictions_wholes[:,1,:], max_z_fluence_protons, "Fluence")
+plot_true_pred(normalized_data_z_fluence_protons_test_wholes[::], test_predictions_wholes['fluence_z'], max_z_fluence_protons, "Fluence")
 
 # %% [markdown]
 # ### dLET
 
 # %%
-plot_true_pred(normalized_data_dlet_protons_test_wholes[::], test_predictions_wholes[:,2,:], max_z_dlet_protons, "dLet")
+plot_true_pred(normalized_data_z_dlet_protons_test_wholes[::], test_predictions_wholes['dlet_z'], max_z_dlet_protons, "dLet")
 
 
 # %% [markdown]
@@ -762,20 +794,20 @@ def plot_true_pred_log(true, pred, multiplier, quantity):
     fig.update_yaxes(type="log")
     fig.show()    
 
-plot_true_pred_log(normalized_data_dose_test_wholes[::], test_predictions_wholes[:,0,:], max_z_dose, "Dose")
+plot_true_pred_log(normalized_data_z_dose_test_wholes[::], test_predictions_wholes['dose_z'], max_z_dose, "Dose")
 
 
 # %% [markdown]
 # ### Fluence
 
 # %%
-plot_true_pred_log(normalized_data_fluence_protons_test_wholes[::],  test_predictions_wholes[:,1,:], max_z_fluence_protons, "Fluence")
+plot_true_pred_log(normalized_data_z_fluence_protons_test_wholes[::],  test_predictions_wholes['fluence_z'], max_z_fluence_protons, "Fluence")
 
 # %% [markdown]
 # ### dLet
 
 # %%
-plot_true_pred_log(normalized_data_dlet_protons_test_wholes[::],  test_predictions_wholes[:,2,:], max_z_dlet_protons, "dLet")
+plot_true_pred_log(normalized_data_z_dlet_protons_test_wholes[::],  test_predictions_wholes['dlet_z'], max_z_dlet_protons, "dLet")
 
 # %% [markdown]
 # ## difference
@@ -820,19 +852,19 @@ def plot_diff(true, pred, multiplier, quantity):
 
     fig.show()    
 
-plot_diff(normalized_data_dose_test_wholes[::], test_predictions_wholes[:,0,:], max_z_dose, "Dose")
+plot_diff(normalized_data_z_dose_test_wholes[::], test_predictions_wholes['dose_z'], max_z_dose, "Dose")
 
 # %% [markdown]
 # ### fluence difference 
 
 # %%
-plot_diff(normalized_data_fluence_protons_test_wholes[::], test_predictions_wholes[:,1,:], max_z_dlet_protons, "Fluence")
+plot_diff(normalized_data_z_fluence_protons_test_wholes[::], test_predictions_wholes['fluence_z'], max_z_dlet_protons, "Fluence")
 
 # %% [markdown]
 # ### dlet difference 
 
 # %%
-plot_diff(normalized_data_dlet_protons_test_wholes[::], test_predictions_wholes[:,2,:], max_z_dlet_protons, "dlet")
+plot_diff(normalized_data_z_dlet_protons_test_wholes[::], test_predictions_wholes['dlet_z'], max_z_dlet_protons, "dlet")
 
 # %% [markdown]
 # ## Percent diff
@@ -862,19 +894,19 @@ def print_percent_diff(true, pred, quantity):
 
     fig.show()    
 
-print_percent_diff(normalized_data_dose_test_wholes[::], test_predictions_wholes[:,0,:], "Dose")
+print_percent_diff(normalized_data_z_dose_test_wholes[::], test_predictions_wholes['dose_z'], "Dose")
 
 # %% [markdown]
 # ### Fluence percent difference
 
 # %%
-print_percent_diff(normalized_data_fluence_protons_test_wholes[::], test_predictions_wholes[:,1,:], "Fluence")
+print_percent_diff(normalized_data_z_fluence_protons_test_wholes[::], test_predictions_wholes['fluence_z'], "Fluence")
 
 # %% [markdown]
 # ### Dlet percent difference
 
 # %%
-print_percent_diff(normalized_data_dlet_protons_test_wholes[::], test_predictions_wholes[:,2,:], "dLet")
+print_percent_diff(normalized_data_z_dlet_protons_test_wholes[::], test_predictions_wholes['dlet_z'], "dLet")
 
 # %%
 
@@ -938,20 +970,20 @@ def plot_true_pred(true, pred, multiplier, quantity):
 
     fig.show()    
 
-plot_true_pred(normalized_data_dose_test_halves, test_predictions_halves[:,0,:], max_z_dose, "Dose")
+plot_true_pred(normalized_data_z_dose_test_halves, test_predictions_halves['dose_z'], max_z_dose, "Dose")
 
 
 # %% [markdown]
 # ### Fluence
 
 # %%
-plot_true_pred(normalized_data_fluence_protons_test_halves[::], test_predictions_halves[:,1,:], max_z_fluence_protons, "Fluence")
+plot_true_pred(normalized_data_z_fluence_protons_test_halves[::], test_predictions_halves['fluence_z'], max_z_fluence_protons, "Fluence")
 
 # %% [markdown]
 # ### dLET
 
 # %%
-plot_true_pred(normalized_data_dlet_protons_test_halves[::], test_predictions_halves[:,2,:], max_z_dlet_protons, "dLet")
+plot_true_pred(normalized_data_z_dlet_protons_test_halves[::], test_predictions_halves['dlet_z'], max_z_dlet_protons, "dLet")
 
 
 # %% [markdown]
@@ -1000,20 +1032,20 @@ def plot_true_pred_log(true, pred, multiplier, quantity):
     fig.update_yaxes(type="log")
     fig.show()    
 
-plot_true_pred_log(normalized_data_dose_test_halves[::], test_predictions_halves[:,0,:], max_z_dose, "Dose")
+plot_true_pred_log(normalized_data_z_dose_test_halves[::], test_predictions_halves['dose_z'], max_z_dose, "Dose")
 
 
 # %% [markdown]
 # ### Fluence
 
 # %%
-plot_true_pred_log(normalized_data_fluence_protons_test_halves[::],  test_predictions_halves[:,1,:], max_z_fluence_protons, "Fluence")
+plot_true_pred_log(normalized_data_z_fluence_protons_test_halves[::],  test_predictions_halves['fluence_z'], max_z_fluence_protons, "Fluence")
 
 # %% [markdown]
 # ### dLet
 
 # %%
-plot_true_pred_log(normalized_data_dlet_protons_test_halves[::],  test_predictions_halves[:,2,:], max_z_dlet_protons, "dLet")
+plot_true_pred_log(normalized_data_z_dlet_protons_test_halves[::],  test_predictions_halves['dlet_z'], max_z_dlet_protons, "dLet")
 
 # %% [markdown]
 # ## difference
@@ -1058,19 +1090,19 @@ def plot_diff(true, pred, multiplier, quantity):
 
     fig.show()    
 
-plot_diff(normalized_data_dose_test_halves[::], test_predictions_halves[:,0,:], max_z_dose, "Dose")
+plot_diff(normalized_data_z_dose_test_halves[::], test_predictions_halves['dose_z'], max_z_dose, "Dose")
 
 # %% [markdown]
 # ### fluence difference 
 
 # %%
-plot_diff(normalized_data_fluence_protons_test_halves[::], test_predictions_halves[:,1,:], max_z_dlet_protons, "Fluence")
+plot_diff(normalized_data_z_fluence_protons_test_halves[::], test_predictions_halves['fluence_z'], max_z_dlet_protons, "Fluence")
 
 # %% [markdown]
 # ### dlet difference 
 
 # %%
-plot_diff(normalized_data_dlet_protons_test_halves[::], test_predictions_halves[:,2,:], max_z_dlet_protons, "dlet")
+plot_diff(normalized_data_z_dlet_protons_test_halves[::], test_predictions_halves['dlet_z'], max_z_dlet_protons, "dlet")
 
 # %% [markdown]
 # ## Percent diff
@@ -1100,19 +1132,19 @@ def print_percent_diff(true, pred, quantity):
 
     fig.show()    
 
-print_percent_diff(normalized_data_dose_test_halves[::], test_predictions_halves[:,0,:], "Dose")
+print_percent_diff(normalized_data_z_dose_test_halves[::], test_predictions_halves['dose_z'], "Dose")
 
 # %% [markdown]
 # ### Fluence percent difference
 
 # %%
-print_percent_diff(normalized_data_fluence_protons_test_halves[::], test_predictions_halves[:,1,:], "Fluence")
+print_percent_diff(normalized_data_z_fluence_protons_test_halves[::], test_predictions_halves['fluence_z'], "Fluence")
 
 # %% [markdown]
 # ### Dlet percent difference
 
 # %%
-print_percent_diff(normalized_data_dlet_protons_test_halves[::], test_predictions_halves[:,2,:], "dLet")
+print_percent_diff(normalized_data_z_dlet_protons_test_halves[::], test_predictions_halves['dlet_z'], "dLet")
 
 # %%
 
