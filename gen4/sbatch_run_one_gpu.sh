@@ -23,5 +23,5 @@ source venv/bin/activate
 python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 python3 -m pip install requests dotenv
 
-python -u /net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen4/train_model.py
+python -u /net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen4/train_model.py $SLURM_JOB_ID
 

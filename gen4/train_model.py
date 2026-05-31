@@ -18,7 +18,7 @@ LOGS_PATH = Path(HOME, "tmp", "logs")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
-training_data = np.load(Path(HOME,"training_data_g4_batch.npz"))
+training_data = np.load(Path(HOME,"training_data_g4_batch1_dlet_z_processed.npz"))
 data_z_dose = training_data["data_z_dose"]
 data_z_fluence_protons = training_data["data_z_fluence_protons"]
 data_z_dlet_protons = training_data["data_z_dlet_protons"]
@@ -33,16 +33,12 @@ x_min, x_max = np.min(data_x), np.max(data_x)
 # per-series maxima
 max_z_dose = np.max(data_z_dose)
 max_r_dose = np.max(data_r_dose)
-# overall max (kept for compatibility)
-max_dose = max(max_z_dose, max_r_dose)
 
 max_z_fluence_protons = np.max(data_z_fluence_protons)
 max_r_fluence_protons = np.max(data_r_fluence_protons)
-max_fluence_protons = max(max_z_fluence_protons, max_r_fluence_protons)
 
 max_z_dlet_protons = np.max(data_z_dlet_protons)
 max_r_dlet_protons = np.max(data_r_dlet_protons)
-max_dlet_protons = max(max_z_dlet_protons, max_r_dlet_protons)
 
 normalized_x = (data_x - x_min) / (x_max-x_min)
 
@@ -337,7 +333,7 @@ if not Path(HOME, CHECKPOINTS_DIR_NAME).is_dir():
 #         with open(Path(HOME,"tmp","train_model_loop.py"), "r") as current_code_file:
 #             best_code_file.write(current_code_file.read())
 
-torch.save(model.state_dict(), Path(HOME,CHECKPOINTS_DIR_NAME,f"basic{slurm_job_id}.pth"))
+# torch.save(model.state_dict(), Path(HOME,CHECKPOINTS_DIR_NAME,f"basic{slurm_job_id}.pth"))
 torch.save(model, Path(HOME,CHECKPOINTS_DIR_NAME,f"basic_model{slurm_job_id}.pth"))
 shutil.copy(Path(HOME, "train_model.py"), Path(HOME,CHECKPOINTS_DIR_NAME, "train_model.py"))
 
