@@ -1,6 +1,6 @@
 #!/bin/bash
 
-module load shieldhit
+module load shieldhit/1.1.1
 SAVE_DATA_LOCATION={data_location}/batch{batch_num}
 
 
