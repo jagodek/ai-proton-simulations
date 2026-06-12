@@ -1,95 +1,86 @@
 import os
 import time
-import sys
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import math
+import os
+import sys
 from pathlib import Path
+slurm_job_id = ""
+if len(sys.argv) == 2:
+    slurm_job_id = str(sys.argv[1])
+
+HOME = "/home/michal/slrm/gen3"
+if os.getenv("PLG_GROUPS_STORAGE"):
+    HOME = "/net/people/plgrid/plgmichalgodek/workspace/ai-proton-simulations/gen3"
+LOGS_PATH = Path(HOME, "tmp", "logs") 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-training_data = np.load("training_data.npz")
-normalized_data_dose = training_data["normalized_data_dose"]
-normalized_data_fluence_protons = training_data["normalized_data_fluence_protons"]
-normalized_data_dlet_protons = training_data["normalized_data_dlet_protons"]
-X = training_data["normalized_data_x"]
+print(f"Device: {device}")
+training_data = np.load(Path(HOME,"training_data_g3batch7_raw_dlet.npz"))
+data_dose = training_data["data_dose"]
+data_fluence_protons = training_data["data_fluence_protons"]
+data_dlet_protons = training_data["data_dlet_protons"]
+data_x = training_data["data_x"]
+print(f"Training on energies [{data_x[0],data_x[1]}...{data_x[-2],data_x[-1]}")
+x_min, x_max = np.min(data_x), np.max(data_x)
+max_dose = np.max(data_dose)
+max_fluence_protons = np.max(data_fluence_protons)
+max_dlet_protons = np.max(data_dlet_protons)
+
+normalized_x = (data_x - x_min) / (x_max-x_min)
+normalized_data_dose = data_dose/max_dose
+normalized_data_fluence_protons = data_fluence_protons/max_fluence_protons
+normalized_data_dlet_protons = data_dlet_protons/max_dlet_protons
 
 
-test_data = np.load("test_data_g3batch8.npz")
-normalized_data_dose_test = test_data["normalized_data_dose_test"]
-normalized_data_fluence_protons_test = test_data["normalized_data_fluence_protons_test"]
-normalized_data_dlet_protons_test = test_data["normalized_data_dlet_protons_test"]
-X_test = test_data["normalized_data_x_test"]
+test_data = np.load(Path(HOME, "test_data_g3batch10.npz"))
+data_dose_test = test_data["data_dose_test"]
+data_fluence_protons_test = test_data["data_fluence_protons_test"]
+data_dlet_protons_test = test_data["data_dlet_protons_test"]
+data_x_test = test_data["data_x_test"]
+
+normalized_x_test = (data_x_test - x_min) / (x_max-x_min)
+normalized_data_dose_test = data_dose_test/max_dose
+normalized_data_fluence_protons_test = data_fluence_protons_test/max_fluence_protons
+normalized_data_dlet_protons_test = data_dlet_protons_test/max_dlet_protons      
 
 
-def test_model(model, criterion, device, batch_size=128):
-    """
-    Evaluates the trained model on the test dataset.
-    """
-    # 1. Set the model to evaluation mode
-    model.eval()
-    
-    # 2. Prepare test tensors and move them to the correct device
-    Y_test = torch.stack([
-        torch.tensor(normalized_data_dose_test, dtype=torch.float32),
-        torch.tensor(normalized_data_fluence_protons_test, dtype=torch.float32),
-        torch.tensor(normalized_data_dlet_protons_test, dtype=torch.float32),
-    ], dim=1).to(device)
-    
-    X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
-    n_test = len(X_test_tensor)
-    
-    test_loss = 0.0
-    
-    # 3. Disable gradient computation to save memory and speed up inference
-    with torch.no_grad():
-        for i in range(0, n_test, batch_size):
-            x_batch = X_test_tensor[i:i+batch_size]
-            y_batch = Y_test[i:i+batch_size]
-            
-            # Forward pass
-            pred = model(x_batch)
-            loss = criterion(pred, y_batch)
-            test_loss += loss.item()
-            
-    # Calculate the average test loss across all batches
-    num_batches = math.ceil(n_test / batch_size)
-    avg_test_loss = test_loss / num_batches
-    
-    print(f"\n--- Model Evaluation ---")
-    print(f"Final Test MSE Loss: {avg_test_loss:.4e}")
-    
-    return avg_test_loss
+def proportional_mse_loss(pred, target):
+    eps = 1e-9
+    sq_err_batch = (pred - target) / (target.abs() + eps)
 
-# Call the function after your training loop finishes
+    weighted = (sq_err_batch**2)
 
+    return weighted.mean()
 
 Y = torch.stack([
     torch.tensor(normalized_data_dose,    dtype=torch.float32),
     torch.tensor(normalized_data_fluence_protons, dtype=torch.float32),
     torch.tensor(normalized_data_dlet_protons,     dtype=torch.float32),
 ], dim=1).to(device)
-X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
-n = len(X_tensor)
+X_tensor = torch.tensor(normalized_x, dtype=torch.float32).to(device)
+n_samples = n_samples = len(X_tensor)
 
-class ProtonDepthProfileNet(nn.Module):
-    def __init__(self, hidden_dim: int = 64, n_segments: int = 400):
+class Model(nn.Module):
+    def __init__(self):
         super().__init__()
-        self.n_segments = n_segments
+        self.n_segments = 400
+        self.hidden_dim = 128
 
         self.trunk = nn.Sequential(
-            nn.Linear(1, hidden_dim),
+            nn.Linear(1, self.hidden_dim),
             nn.SiLU(),
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.SiLU(),
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.SiLU(),
         )
 
-        self.head_dose     = nn.Sequential(nn.Linear(hidden_dim, n_segments), nn.Softplus())
-        self.head_fluence  = nn.Sequential(nn.Linear(hidden_dim, n_segments), nn.Softplus())
-        self.head_let      = nn.Sequential(nn.Linear(hidden_dim, n_segments), nn.Softplus())
+        self.head_dose     = nn.Sequential(nn.Linear(self.hidden_dim, self.n_segments), nn.Softplus())
+        self.head_fluence  = nn.Sequential(nn.Linear(self.hidden_dim, self.n_segments), nn.Softplus())
+        self.head_let      = nn.Sequential(nn.Linear(self.hidden_dim, self.n_segments), nn.Softplus())
 
     def forward(self, energy: torch.Tensor) -> torch.Tensor:
         if energy.dim() == 1:
@@ -103,22 +94,21 @@ class ProtonDepthProfileNet(nn.Module):
 
         return torch.stack([dose, fluence, let], dim=1)
 
+batch_size = 64
+total_epochs = 1000
 
-model     = ProtonDepthProfileNet(16).to(device)
+model     = Model().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20, factor=0.5)
 criterion = nn.MSELoss()
 
-best_val_loss = float("inf")
-
 model.train()
-n_samples = X.shape[0]
-batch_size = 128
 start_training = time.time()
-for epoch in range(1000):
+
+for epoch in range(total_epochs):
     train_loss = 0.0
-    perm = torch.randperm(n)
-    for i in range(0, n, batch_size):
+    perm = torch.randperm(n_samples)
+    for i in range(0, n_samples, batch_size):
         idx = perm[i:i+batch_size]
         x_batch, y_batch = X_tensor[idx], Y[idx]
 
@@ -128,7 +118,7 @@ for epoch in range(1000):
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
-    num_batches = math.ceil(n / batch_size)
+    num_batches = math.ceil(n_samples / batch_size)
     train_loss /= num_batches
     current_lr = optimizer.param_groups[0]['lr']
     if epoch % 50 == 0:
@@ -139,10 +129,8 @@ for epoch in range(1000):
             f"Time: {time.time()-start_training:.2f}"
         )
 
-final_test_loss = test_model(model, criterion, device, batch_size=128)
 
-print(f"Train_loss: {final_test_loss}")
 
-os.makedirs('./checkpoints', exist_ok=True)
-torch.save(model.state_dict(), './checkpoints/gen3_batch7_ProtonDepthProfileNet_16_dletpreprocessing_02_01.pth')
+os.makedirs('./checkpoints'+slurm_job_id, exist_ok=True)
+torch.save(model.state_dict(), './checkpoints/model.pth')
 
